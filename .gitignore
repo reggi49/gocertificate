@@ -1,0 +1,44 @@
+# Binaries & build outputs
+build/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+certificate-generator
+
+# Node & Frontend dependencies
+frontend/node_modules/
+frontend/.vite/
+*.local
+
+# Database & runtime storage
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Test outputs
+tests/fixtures/output/*.pdf
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.zsh_history
+
+# IDE & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
