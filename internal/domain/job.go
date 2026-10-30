@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -124,9 +125,12 @@ func (c *BatchConfig) Validate() error {
 		return fmt.Errorf("template id is required")
 	}
 	if c.Concurrency <= 0 {
-		c.Concurrency = 1 // Default concurrency 1 (safe for 4 GB RAM)
-	} else if c.Concurrency > 4 {
-		c.Concurrency = 4 // Safe ceiling for desktop memory constraints
+		cpus := runtime.NumCPU()
+		calculated := int(float64(cpus) * 0.75)
+		if calculated < 1 {
+			calculated = 1
+		}
+		c.Concurrency = calculated
 	}
 	return nil
 }

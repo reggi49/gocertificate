@@ -8,6 +8,7 @@ import {
   StopCircle,
   FileArchive,
   RefreshCw,
+  Folder,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import type {
@@ -43,12 +44,13 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { client } = useProjectStore();
+  const { client, activeProject } = useProjectStore();
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [recipientCount, setRecipientCount] = useState(0);
   const [exportZip, setExportZip] = useState(false);
+  const [outputDir, setOutputDir] = useState('');
 
   // Execution states
   const [isRunning, setIsRunning] = useState(false);
@@ -59,6 +61,13 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   useEffect(() => {
     let ignore = false;
     if (isOpen) {
+      // Initialize default export directory
+      client.getDefaultExportDirectory(activeProject?.name || '').then((dir) => {
+        if (!ignore && dir) {
+          setOutputDir(dir);
+        }
+      });
+
       client.listTemplates(projectId).then((list) => {
         if (!ignore) {
           setTemplates(list);
@@ -80,9 +89,20 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
     return () => {
       ignore = true;
     };
-  }, [isOpen, projectId, recipientIds, client]);
+  }, [isOpen, projectId, recipientIds, client, activeProject]);
 
   if (!isOpen) return null;
+
+  const handleChooseFolder = async () => {
+    try {
+      const selected = await client.selectOutputDirectory();
+      if (selected) {
+        setOutputDir(selected);
+      }
+    } catch (err) {
+      console.error('Failed to select output directory:', err);
+    }
+  };
 
   const handleStartGeneration = async () => {
     if (!selectedTemplateId) {
@@ -113,6 +133,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
         templateId: selectedTemplateId,
         recipientIds: recipientIds && recipientIds.length > 0 ? recipientIds : [],
         concurrency: 0,
+        outputDir: outputDir ? outputDir.trim() : '',
         exportZip,
         exportIndividualPdf: !exportZip,
       } as any;
@@ -250,6 +271,33 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                   </label>
                 </div>
               </div>
+
+              {/* Output Directory Selection */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
+                  Folder Penyimpanan
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={outputDir}
+                    onChange={(e) => setOutputDir(e.target.value)}
+                    placeholder="Pilih folder tujuan simpan sertifikat..."
+                    className="flex-1 text-xs px-3 py-2 border border-slate-300 rounded-xl bg-slate-50 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleChooseFolder}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Folder className="w-3.5 h-3.5" />
+                    <span>Pilih Folder...</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Sertifikat akan disimpan langsung ke folder ini sehingga mudah dibuka dan tidak tersimpan di folder sistem yang jauh/tersembunyi.
+                </p>
+              </div>
             </>
           )}
 
@@ -331,10 +379,20 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
 
               {activeJob.outputPath && (
                 <div className="text-left bg-blue-50/50 p-3 rounded-xl border border-blue-200 text-xs">
-                  <span className="font-semibold text-blue-900 block mb-0.5 flex items-center gap-1.5">
-                    <FileArchive className="w-3.5 h-3.5 text-blue-600" />
-                    Lokasi Output File:
-                  </span>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-blue-900 flex items-center gap-1.5">
+                      <FileArchive className="w-3.5 h-3.5 text-blue-600" />
+                      Lokasi Output File:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => activeJob.outputPath && client.openDirectory(activeJob.outputPath)}
+                      className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-blue-200 shadow-xs cursor-pointer hover:bg-blue-50 transition"
+                    >
+                      <Folder className="w-3 h-3" />
+                      Buka Folder
+                    </button>
+                  </div>
                   <p className="font-mono text-[11px] text-slate-700 break-all">
                     {activeJob.outputPath}
                   </p>

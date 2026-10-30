@@ -51,4 +51,15 @@ func TestFontResolver(t *testing.T) {
 	if !ok || name != "TrajanPro-Bold" {
 		t.Errorf("Expected 'Trajan Pro Bold' to resolve to TrajanPro-Bold, got %s (ok=%v)", name, ok)
 	}
+
+	// 7. Embedded font resolution without disk directory (Standalone binary simulation)
+	emptyResolver := font.NewResolver("")
+	eName, eBytes, eOk := emptyResolver.ResolveBytes("LiberationSerif")
+	if !eOk || eName != "LiberationSerif" || len(eBytes) == 0 {
+		t.Errorf("Expected embedded LiberationSerif to resolve from empty resolver, got name=%s, ok=%v, bytesLen=%d", eName, eOk, len(eBytes))
+	}
+	sName, sBytes, sOk := emptyResolver.ResolveBytes("Sloop Scriptone")
+	if !sOk || len(sBytes) == 0 {
+		t.Errorf("Expected embedded Sloop Scriptone to resolve, got name=%s, ok=%v", sName, sOk)
+	}
 }

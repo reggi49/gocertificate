@@ -345,3 +345,30 @@ func (a *App) OpenDirectory(dirPath string) error {
 	}
 	return cmd.Start()
 }
+
+// SelectOutputDirectory opens a native directory picker dialog for certificate exports.
+func (a *App) SelectOutputDirectory() (string, error) {
+	app := wailsApp.Get()
+	if app == nil || app.Dialog == nil {
+		return "", fmt.Errorf("dialog manager not available")
+	}
+
+	dialog := app.Dialog.OpenFileWithOptions(&wailsApp.OpenFileDialogOptions{
+		CanChooseDirectories: true,
+		CanChooseFiles:       false,
+		CanCreateDirectories: true,
+		Title:                "Pilih Folder Penyimpanan Sertifikat",
+		ButtonText:           "Pilih Folder",
+	})
+
+	selectedPath, err := dialog.PromptForSingleSelection()
+	if err != nil {
+		return "", err
+	}
+	return selectedPath, nil
+}
+
+// GetDefaultExportDirectory returns the user-friendly default export directory.
+func (a *App) GetDefaultExportDirectory(projectName string) string {
+	return filesystem.DefaultExportDirectory(projectName)
+}

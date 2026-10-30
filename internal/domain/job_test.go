@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"runtime"
 	"testing"
 
 	"certificate-generator/internal/domain"
@@ -57,16 +58,20 @@ func TestBatchConfigValidation(t *testing.T) {
 		t.Fatalf("cfg.Validate failed: %v", err)
 	}
 
-	// Concurrency should default to 1
-	if cfg.Concurrency != 1 {
-		t.Errorf("Expected default concurrency 1, got %d", cfg.Concurrency)
+	// Concurrency should default to smart 75% of machine CPU
+	expectedConcurrency := int(float64(runtime.NumCPU()) * 0.75)
+	if expectedConcurrency < 1 {
+		expectedConcurrency = 1
+	}
+	if cfg.Concurrency != expectedConcurrency {
+		t.Errorf("Expected smart concurrency %d, got %d", expectedConcurrency, cfg.Concurrency)
 	}
 
-	// Concurrency capped at 4
+	// Explicit concurrency preserved
 	cfg.Concurrency = 10
 	_ = cfg.Validate()
-	if cfg.Concurrency != 4 {
-		t.Errorf("Expected capped concurrency 4, got %d", cfg.Concurrency)
+	if cfg.Concurrency != 10 {
+		t.Errorf("Expected explicit concurrency 10 to be preserved, got %d", cfg.Concurrency)
 	}
 
 	// Missing project id

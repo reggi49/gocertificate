@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"certificate-generator/assets"
 	"certificate-generator/internal/domain"
 	fontresolver "certificate-generator/internal/renderer/font"
 	"certificate-generator/internal/storage/filesystem"
@@ -66,7 +67,14 @@ func ParseHexColor(hex string) (uint8, uint8, uint8, error) {
 }
 
 // Render compiles the document into a professional vector PDF byte buffer.
-func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string, assetRootDir string) ([]byte, error) {
+func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string, assetRootDir string) (pdfBytes []byte, retErr error) {
+	// Guard against panic in third-party PDF subsetter/measurer so the app NEVER crashes
+	defer func() {
+		if rec := recover(); rec != nil {
+			retErr = fmt.Errorf("pdf rendering panic recovered: %v", rec)
+		}
+	}()
+
 	if err := doc.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid document: %w", err)
 	}
@@ -85,20 +93,39 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 
 	pdf.AddPage()
 
-	// Register fonts from font resolver
+	// Register fonts: register all embedded fonts upfront
 	registeredFonts := make(map[string]bool)
 	defaultFontName := "LiberationSerif"
 
+	for family, fontBytes := range r.fontResolver.AllEmbeddedFonts() {
+		if err := pdf.AddTTFFontData(family, fontBytes); err == nil {
+			registeredFonts[family] = true
+		}
+	}
+
+	// Also register disk fonts if present
 	liberationPath := filepath.Join(r.FontDir, "LiberationSerif-Regular.ttf")
-	if _, err := os.Stat(liberationPath); err == nil {
-		if err := pdf.AddTTFFont("LiberationSerif", liberationPath); err == nil {
-			registeredFonts["LiberationSerif"] = true
+	if !registeredFonts["LiberationSerif"] {
+		if _, err := os.Stat(liberationPath); err == nil {
+			if err := pdf.AddTTFFont("LiberationSerif", liberationPath); err == nil {
+				registeredFonts["LiberationSerif"] = true
+			}
 		}
 	}
 	ubuntuPath := filepath.Join(r.FontDir, "Ubuntu-Regular.ttf")
-	if _, err := os.Stat(ubuntuPath); err == nil {
-		if err := pdf.AddTTFFont("Ubuntu", ubuntuPath); err == nil {
-			registeredFonts["Ubuntu"] = true
+	if !registeredFonts["Ubuntu"] {
+		if _, err := os.Stat(ubuntuPath); err == nil {
+			if err := pdf.AddTTFFont("Ubuntu", ubuntuPath); err == nil {
+				registeredFonts["Ubuntu"] = true
+			}
+		}
+	}
+
+	// Guarantee default font is registered
+	if !registeredFonts[defaultFontName] {
+		for f := range registeredFonts {
+			defaultFontName = f
+			break
 		}
 	}
 
@@ -131,6 +158,7 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 		case domain.ElementTypeBackground, domain.ElementTypeImage, domain.ElementTypeLogo, domain.ElementTypeSignature:
 			imgRelPath := el.Properties.RelativePath
 			if imgRelPath != "" {
+				loaded := false
 				candidates := []string{
 					filepath.Join(assetRootDir, imgRelPath),
 					imgRelPath,
@@ -141,8 +169,21 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 				}
 				for _, candidate := range candidates {
 					if _, err := os.Stat(candidate); err == nil {
-						_ = pdf.Image(candidate, xPt, yPt, &gopdf.Rect{W: wPt, H: hPt})
-						break
+						if err := pdf.Image(candidate, xPt, yPt, &gopdf.Rect{W: wPt, H: hPt}); err == nil {
+							loaded = true
+							break
+						}
+					}
+				}
+
+				// Fallback to embedded backgrounds (guarantees standalone binary works anywhere)
+				if !loaded {
+					baseName := filepath.Base(imgRelPath)
+					if bgBytes, err := assets.ReadBackground(baseName); err == nil {
+						if holder, err := gopdf.ImageHolderByBytes(bgBytes); err == nil {
+							_ = pdf.ImageByHolder(holder, xPt, yPt, &gopdf.Rect{W: wPt, H: hPt})
+							loaded = true
+						}
 					}
 				}
 			}
@@ -225,15 +266,29 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 
 		case domain.ElementTypeText:
 			fontFamily := el.Properties.FontFamily
-			resolvedName, fontPath, found := r.fontResolver.Resolve(fontFamily)
-			if found {
-				if !registeredFonts[resolvedName] {
-					if err := pdf.AddTTFFont(resolvedName, fontPath); err == nil {
-						registeredFonts[resolvedName] = true
+			canonicalName, fontBytes, foundBytes := r.fontResolver.ResolveBytes(fontFamily)
+			if foundBytes {
+				if !registeredFonts[canonicalName] {
+					if err := pdf.AddTTFFontData(canonicalName, fontBytes); err == nil {
+						registeredFonts[canonicalName] = true
 					}
 				}
-				fontFamily = resolvedName
+				fontFamily = canonicalName
 			} else {
+				resolvedName, fontPath, found := r.fontResolver.Resolve(fontFamily)
+				if found {
+					if !registeredFonts[resolvedName] && fontPath != "" {
+						if err := pdf.AddTTFFont(resolvedName, fontPath); err == nil {
+							registeredFonts[resolvedName] = true
+						}
+					}
+					fontFamily = resolvedName
+				} else {
+					fontFamily = defaultFontName
+				}
+			}
+
+			if !registeredFonts[fontFamily] {
 				fontFamily = defaultFontName
 			}
 
@@ -242,9 +297,12 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 				fontSize = 12
 			}
 
-			// Activate font
+			// Activate font safely
 			if err := pdf.SetFont(fontFamily, "", int(fontSize)); err != nil {
-				_ = pdf.SetFont(defaultFontName, "", int(fontSize))
+				if defaultFontName != "" && registeredFonts[defaultFontName] {
+					_ = pdf.SetFont(defaultFontName, "", int(fontSize))
+					fontFamily = defaultFontName
+				}
 			}
 
 			// Text color

@@ -308,3 +308,31 @@ func copyFile(src, dst string) error {
 	}
 	return out.Sync()
 }
+
+// DefaultExportDirectory returns a clean user-accessible directory (e.g. ~/Downloads/Sertifikat/<ProjectName>).
+func DefaultExportDirectory(projectName string) string {
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		userHome = "."
+	}
+
+	downloads := filepath.Join(userHome, "Downloads")
+	baseDir := filepath.Join(downloads, "Sertifikat")
+	if _, err := os.Stat(downloads); err != nil {
+		// Fallback to Documents if Downloads directory doesn't exist
+		docs := filepath.Join(userHome, "Documents")
+		if _, err := os.Stat(docs); err == nil {
+			baseDir = filepath.Join(docs, "Sertifikat")
+		} else {
+			baseDir = filepath.Join(userHome, "Sertifikat")
+		}
+	}
+
+	if projectName != "" {
+		cleanProject := SanitizeFilename(projectName)
+		if cleanProject != "" {
+			return filepath.Join(baseDir, cleanProject)
+		}
+	}
+	return baseDir
+}

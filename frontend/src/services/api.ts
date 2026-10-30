@@ -80,6 +80,8 @@ export interface IApiClient {
   restoreProject(opts: RestoreOptions): Promise<RestoreResult | null>;
   openFile(filePath: string): Promise<void>;
   openDirectory(path: string): Promise<void>;
+  selectOutputDirectory(): Promise<string>;
+  getDefaultExportDirectory(projectName: string): Promise<string>;
 }
 
 // In-memory mock client used in testing or outside Wails desktop runtime
@@ -468,6 +470,12 @@ export class MockApiClient implements IApiClient {
 
   async openFile(_filePath: string): Promise<void> {}
   async openDirectory(_path: string): Promise<void> {}
+  async selectOutputDirectory(): Promise<string> {
+    return '/mock/Downloads/Sertifikat';
+  }
+  async getDefaultExportDirectory(projectName: string): Promise<string> {
+    return `/mock/Downloads/Sertifikat/${projectName || 'Proyek'}`;
+  }
 }
 
 // Production client forwarding calls to generated Wails bindings
@@ -636,6 +644,14 @@ export class WailsApiClient implements IApiClient {
 
   openDirectory(path: string): Promise<void> {
     return AppBindings.OpenDirectory(path);
+  }
+
+  selectOutputDirectory(): Promise<string> {
+    return AppBindings.SelectOutputDirectory();
+  }
+
+  getDefaultExportDirectory(projectName: string): Promise<string> {
+    return AppBindings.GetDefaultExportDirectory(projectName);
   }
 }
 

@@ -230,7 +230,7 @@ func (g *BatchGenerator) ExecuteBatch(
 	}
 
 	// Output target
-	finalOutputDir := cfg.OutputDir
+	finalOutputDir := strings.TrimSpace(cfg.OutputDir)
 	if finalOutputDir == "" {
 		finalOutputDir = filepath.Join(projDir, "exports")
 	}
@@ -276,6 +276,11 @@ func (g *BatchGenerator) ExecuteBatch(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					g.logger.Error("Worker goroutine panic recovered", "error", r)
+				}
+			}()
 
 			for task := range taskChan {
 				// Check context cancellation before item processing
