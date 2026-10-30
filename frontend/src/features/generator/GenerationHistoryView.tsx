@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { BatchGenerationModal } from './BatchGenerationModal';
+import { toTitleCase } from '../../lib/units';
 import type {
   GenerationJob,
   GenerationJobItem,
@@ -335,11 +336,11 @@ export const GenerationHistoryView: React.FC = () => {
                                       title="Klik untuk membuka sertifikat PDF"
                                     >
                                       <FileText className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                                      {item.recipientName}
+                                      {toTitleCase(item.recipientName)}
                                     </button>
                                   ) : (
                                     <span className="font-semibold text-slate-800">
-                                      {item.recipientName}
+                                      {toTitleCase(item.recipientName)}
                                     </span>
                                   )}
                                 </td>

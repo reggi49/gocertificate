@@ -538,3 +538,35 @@ func TestDefaultJanaizTemplate(t *testing.T) {
 	_ = os.MkdirAll(outputDir, 0755)
 	_ = os.WriteFile(filepath.Join(outputDir, "default_janaiz_test.pdf"), pdfBytes, 0644)
 }
+
+func TestToTitleCaseAndApplyTextTransform(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"muhamad reggi", "Muhamad Reggi"},
+		{"MUHAMAD REGGI", "Muhamad Reggi"},
+		{"bram", "Bram"},
+		{"dr. budi santoso, m.sc.", "Dr. Budi Santoso, M.Sc."},
+		{"nur'aini", "Nur'aini"},
+		{"mary-jane watson", "Mary-Jane Watson"},
+	}
+
+	for _, tt := range tests {
+		got := pdf.ToTitleCase(tt.input)
+		if got != tt.expected {
+			t.Errorf("ToTitleCase(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+
+	// ApplyTextTransform tests
+	if pdf.ApplyTextTransform("yayasan janaiz", "uppercase") != "YAYASAN JANAIZ" {
+		t.Errorf("ApplyTextTransform uppercase failed")
+	}
+	if pdf.ApplyTextTransform("YAYASAN JANAIZ", "lowercase") != "yayasan janaiz" {
+		t.Errorf("ApplyTextTransform lowercase failed")
+	}
+	if pdf.ApplyTextTransform("muhamad reggi", "capitalize") != "Muhamad Reggi" {
+		t.Errorf("ApplyTextTransform capitalize failed")
+	}
+}

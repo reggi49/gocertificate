@@ -36,3 +36,53 @@ export function replacePlaceholders(text: string, variables: Record<string, stri
     return match;
   });
 }
+
+export function toTitleCase(s: string): string {
+  const trimmed = s.trim();
+  if (!trimmed) return '';
+
+  let capitalizeNext = true;
+  let result = '';
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+    const isLetter = /\p{L}/u.test(char);
+
+    if (isLetter) {
+      if (capitalizeNext) {
+        result += char.toUpperCase();
+        capitalizeNext = false;
+      } else {
+        if (i > 1 && trimmed[i - 1] === '.') {
+          result += char.toUpperCase();
+        } else {
+          result += char.toLowerCase();
+        }
+      }
+    } else {
+      result += char;
+      if (/\s/.test(char) || char === '-' || char === '/' || char === '(' || char === '[' || char === '.') {
+        capitalizeNext = true;
+      }
+    }
+  }
+
+  return result;
+}
+
+export function applyTextTransform(
+  text: string,
+  transform?: 'none' | 'uppercase' | 'capitalize' | 'lowercase'
+): string {
+  if (!transform || transform === 'none') return text;
+  switch (transform) {
+    case 'uppercase':
+      return text.toUpperCase();
+    case 'lowercase':
+      return text.toLowerCase();
+    case 'capitalize':
+      return toTitleCase(text);
+    default:
+      return text;
+  }
+}

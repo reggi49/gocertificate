@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Rect, Text as KonvaText, Line, Circle, Group, Image as KonvaImage } from 'react-konva';
 import type Konva from 'konva';
 import type { Element } from '../types';
-import { mmToPx, pxToMm } from '../../../lib/units';
+import { mmToPx, pxToMm, applyTextTransform } from '../../../lib/units';
 import { calculateSnapAndGuides } from '../utils/snapping';
 
 const KonvaImageRenderer: React.FC<{
@@ -259,12 +259,16 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
     case 'text': {
       // 1 pt = 96 / 72 display pixels
       const fontSizePx = (element.properties.fontSizePt || 12) * (96 / 72) * zoom;
+      let renderedText = element.properties.text || '';
+      if (element.properties.textTransform) {
+        renderedText = applyTextTransform(renderedText, element.properties.textTransform);
+      }
 
       return (
         <KonvaText
           {...commonProps}
           width={widthPx > 0 ? widthPx : undefined}
-          text={element.properties.text || ''}
+          text={renderedText}
           fontSize={fontSizePx}
           fontFamily={element.properties.fontFamily || 'LiberationSerif'}
           fill={element.properties.color || '#000000'}

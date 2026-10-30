@@ -327,6 +327,8 @@ export const EditorRightPanel: React.FC = () => {
                 '{{recipient_name}}',
                 '{{event_name}}',
                 '{{issue_date}}',
+                '{{event_location}}',
+                '{{event_address}}',
                 '{{certificate_id}}',
               ].map((ph) => (
                 <button
@@ -436,6 +438,37 @@ export const EditorRightPanel: React.FC = () => {
                 <option value="wrap">Wrap Text</option>
                 <option value="fixed">Fixed</option>
               </select>
+            </div>
+          </div>
+
+          {/* Text Transform / Format Huruf */}
+          <div>
+            <label className="text-[11px] text-slate-500 block mb-1">Format Huruf (Kapitalisasi)</label>
+            <div className="grid grid-cols-4 gap-1.5 bg-slate-100 p-1 rounded-lg">
+              {[
+                { id: 'none', label: 'Asli', desc: 'Sesuai ketikan/data asli' },
+                { id: 'capitalize', label: 'Aa', desc: 'Awal Kata Besar (Title Case)' },
+                { id: 'uppercase', label: 'AA', desc: 'KAPITAL SEMUA (Uppercase)' },
+                { id: 'lowercase', label: 'aa', desc: 'kecil semua (lowercase)' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  title={opt.desc}
+                  onClick={() =>
+                    updateElementProperties(selectedElement.id, {
+                      textTransform: opt.id as any,
+                    })
+                  }
+                  className={`py-1 text-xs font-semibold rounded transition text-center ${
+                    (p.textTransform || 'none') === opt.id
+                      ? 'bg-white shadow-2xs text-blue-600 ring-1 ring-blue-500/20'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>

@@ -74,6 +74,7 @@ export function createDefaultJanaizDocument(): Document {
           alignment: 'center',
           verticalAlignment: 'middle',
           fitMode: 'shrink',
+          textTransform: 'capitalize',
         },
       },
       {
@@ -98,6 +99,7 @@ export function createDefaultJanaizDocument(): Document {
           verticalAlignment: 'middle',
           fitMode: 'wrap',
           lineHeight: 1.4,
+          textTransform: 'uppercase',
         },
       },
     ],

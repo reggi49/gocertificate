@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Stage, Layer, Rect, Text as KonvaText, Line, Image as KonvaImage } from 'react-konva';
 import type { Document } from '../types/document';
-import { mmToPx, replacePlaceholders } from '../lib/units';
+import { mmToPx, replacePlaceholders, applyTextTransform } from '../lib/units';
 
 const PreviewImageElement: React.FC<{
   x: number;
@@ -139,7 +139,10 @@ export const CanvasPreview: React.FC<CanvasPreviewProps> = ({
 
                 case 'text': {
                   const rawText = el.properties.text || '';
-                  const displayText = replacePlaceholders(rawText, variables);
+                  let displayText = replacePlaceholders(rawText, variables);
+                  if (el.properties.textTransform) {
+                    displayText = applyTextTransform(displayText, el.properties.textTransform);
+                  }
                   // Approximate pt to display pixels (1 pt = 96/72 px = 1.333 px)
                   const fontSizePx =
                     ((el.properties.fontSizePt || 12) * (96 / 72)) * scale;

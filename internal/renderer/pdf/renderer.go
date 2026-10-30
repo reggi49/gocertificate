@@ -257,6 +257,9 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 			}
 
 			rawText := ReplacePlaceholders(el.Properties.Text, variables)
+			if el.Properties.TextTransform != "" {
+				rawText = ApplyTextTransform(rawText, el.Properties.TextTransform)
+			}
 			lineHeightRatio := el.Properties.LineHeight
 			if lineHeightRatio <= 0 {
 				lineHeightRatio = 1.2

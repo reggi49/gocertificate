@@ -25,6 +25,7 @@ export const ElementPropertiesSchema = z.object({
   lineHeight: z.number().optional(),
   letterSpacing: z.number().optional(),
   fitMode: z.enum(['shrink', 'wrap', 'fixed']).optional(),
+  textTransform: z.enum(['none', 'uppercase', 'capitalize', 'lowercase']).optional(),
 
   fillColor: z.string().optional(),
   strokeColor: z.string().optional(),

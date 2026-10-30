@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ImportWizardModal } from './ImportWizardModal';
+import { toTitleCase } from '../../lib/units';
 import type { Recipient } from '../../../bindings/certificate-generator/internal/domain/models';
 
 export const RecipientsView: React.FC = () => {
@@ -310,7 +311,7 @@ export const RecipientsView: React.FC = () => {
                         />
                       </td>
                       <td className="py-2.5 px-2 font-semibold text-slate-800">
-                        {rec.fullName}
+                        {toTitleCase(rec.fullName)}
                       </td>
                       <td className="py-2.5 px-2 text-slate-500">{rec.email || '-'}</td>
                       <td className="py-2.5 px-2 text-slate-500">{rec.organization || '-'}</td>
@@ -431,7 +432,7 @@ const RecipientFormModal: React.FC<{
       if (initial) {
         await client.updateRecipient({
           ...initial,
-          fullName: fullName.trim(),
+          fullName: toTitleCase(fullName.trim()),
           email: email.trim(),
           organization: organization.trim(),
           eventName: eventName.trim(),
@@ -442,7 +443,7 @@ const RecipientFormModal: React.FC<{
         await client.createRecipient({
           id: '',
           projectId,
-          fullName: fullName.trim(),
+          fullName: toTitleCase(fullName.trim()),
           email: email.trim(),
           organization: organization.trim(),
           eventName: eventName.trim(),

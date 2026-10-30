@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { mmToPt, ptToMm, mmToPx, pxToMm, replacePlaceholders } from './units';
+import {
+  mmToPt,
+  ptToMm,
+  mmToPx,
+  pxToMm,
+  replacePlaceholders,
+  toTitleCase,
+  applyTextTransform,
+} from './units';
 
 describe('Unit Conversions', () => {
   it('converts mm to PDF points accurately', () => {
@@ -34,5 +42,19 @@ describe('Unit Conversions', () => {
     expect(replacePlaceholders(text, vars)).toBe(
       'BERTEMPAT DI Yayasan Janaiz PADA Sedayu City UNTUK Bram'
     );
+  });
+
+  it('converts names to Title Case properly', () => {
+    expect(toTitleCase('muhamad reggi')).toBe('Muhamad Reggi');
+    expect(toTitleCase('MUHAMAD REGGI')).toBe('Muhamad Reggi');
+    expect(toTitleCase('bram')).toBe('Bram');
+    expect(toTitleCase('dr. budi santoso, m.sc.')).toBe('Dr. Budi Santoso, M.Sc.');
+  });
+
+  it('applies text transformations correctly', () => {
+    expect(applyTextTransform('yayasan janaiz', 'uppercase')).toBe('YAYASAN JANAIZ');
+    expect(applyTextTransform('YAYASAN JANAIZ', 'lowercase')).toBe('yayasan janaiz');
+    expect(applyTextTransform('muhamad reggi', 'capitalize')).toBe('Muhamad Reggi');
+    expect(applyTextTransform('Tetap Sama', 'none')).toBe('Tetap Sama');
   });
 });

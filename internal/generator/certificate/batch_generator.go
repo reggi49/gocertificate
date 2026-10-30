@@ -185,7 +185,7 @@ func (g *BatchGenerator) ExecuteBatch(
 			ID:            uuid.New().String(),
 			JobID:         jobID,
 			RecipientID:   rec.ID,
-			RecipientName: rec.FullName,
+			RecipientName: pdf.ToTitleCase(rec.FullName),
 			CertificateID: rec.CertificateID,
 			Status:        domain.ItemStatusPending,
 			CreatedAt:     now,
@@ -292,24 +292,33 @@ func (g *BatchGenerator) ExecuteBatch(
 					eventName = task.rec.EventName
 				}
 
+				// Auto-format recipient name to Title Case (e.g. "muhamad reggi" -> "Muhamad Reggi")
+				recipientName := pdf.ToTitleCase(task.rec.FullName)
+
+				// Auto-format event venue, address, and date to UPPERCASE
+				locationUpper := strings.ToUpper(strings.TrimSpace(projLocation))
+				addressUpper := strings.ToUpper(strings.TrimSpace(projAddress))
+				eventDateUpper := strings.ToUpper(strings.TrimSpace(eventDate))
+				eventNameUpper := strings.ToUpper(strings.TrimSpace(eventName))
+
 				vars := map[string]string{
-					"recipient_name": task.rec.FullName,
+					"recipient_name": recipientName,
 					"email":          task.rec.Email,
 					"organization":   task.rec.Organization,
 					"certificate_id": task.rec.CertificateID,
-					"event_name":     eventName,
-					"nama_acara":     eventName,
-					"issue_date":     eventDate,
-					"event_date":     eventDate,
-					"tanggal":        eventDate,
-					"tanggal_acara":  eventDate,
-					"event_location": projLocation,
-					"location":       projLocation,
-					"tempat":         projLocation,
-					"lokasi":         projLocation,
-					"event_address":  projAddress,
-					"address":        projAddress,
-					"alamat":         projAddress,
+					"event_name":     eventNameUpper,
+					"nama_acara":     eventNameUpper,
+					"issue_date":     eventDateUpper,
+					"event_date":     eventDateUpper,
+					"tanggal":        eventDateUpper,
+					"tanggal_acara":  eventDateUpper,
+					"event_location": locationUpper,
+					"location":       locationUpper,
+					"tempat":         locationUpper,
+					"lokasi":         locationUpper,
+					"event_address":  addressUpper,
+					"address":        addressUpper,
+					"alamat":         addressUpper,
 				}
 
 				// Unmarshal custom fields if any (highest precedence)
@@ -325,9 +334,9 @@ func (g *BatchGenerator) ExecuteBatch(
 				// Generate sanitized filename: {certificate_id}_{recipient_name}.pdf or {index}_{name}.pdf
 				var baseName string
 				if task.rec.CertificateID != "" {
-					baseName = fmt.Sprintf("%s_%s.pdf", task.rec.CertificateID, task.rec.FullName)
+					baseName = fmt.Sprintf("%s_%s.pdf", task.rec.CertificateID, recipientName)
 				} else {
-					baseName = fmt.Sprintf("%04d_%s.pdf", task.index+1, task.rec.FullName)
+					baseName = fmt.Sprintf("%04d_%s.pdf", task.index+1, recipientName)
 				}
 				cleanFileName := filesystem.SanitizeFilename(baseName)
 
@@ -361,7 +370,7 @@ func (g *BatchGenerator) ExecuteBatch(
 				summaryRows = append(summaryRows, []string{
 					task.rec.ID,
 					task.rec.CertificateID,
-					task.rec.FullName,
+					recipientName,
 					cleanFileName,
 					itemStatus,
 					errMsg,
@@ -384,7 +393,7 @@ func (g *BatchGenerator) ExecuteBatch(
 						Failed:               fCount,
 						Percentage:           percent,
 						Status:               domain.JobStatusRunning,
-						CurrentRecipientName: task.rec.FullName,
+						CurrentRecipientName: recipientName,
 					})
 				}
 			}

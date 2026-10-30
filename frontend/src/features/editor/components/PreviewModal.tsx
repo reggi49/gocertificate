@@ -4,6 +4,7 @@ import { useDesignerStore } from '../designerStore';
 import { useProjectStore } from '../../../stores/projectStore';
 import { CanvasPreview } from '../../../components/CanvasPreview';
 import { apiClient } from '../../../services/api';
+import { toTitleCase } from '../../../lib/units';
 
 interface PreviewModalProps {
   isOpen: boolean;
@@ -15,11 +16,11 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
   const { activeProject } = useProjectStore();
 
   const [variables, setVariables] = useState<Record<string, string>>(() => ({
-    recipient_name: 'Maharani Syahputra',
-    event_name: activeProject?.name || 'Pelatihan Pemulasaran Jenazah',
-    issue_date: activeProject?.eventDate || '23 OKTOBER 2026',
-    event_location: activeProject?.eventLocation || 'YAYASAN JANAIZ',
-    event_address: activeProject?.eventAddress || 'SEDAYU CITY BLOK C NO.03 • JAKARTA UTARA',
+    recipient_name: toTitleCase('Maharani Syahputra'),
+    event_name: (activeProject?.name || 'Pelatihan Pemulasaran Jenazah').trim(),
+    issue_date: (activeProject?.eventDate || '23 OKTOBER 2026').toUpperCase().trim(),
+    event_location: (activeProject?.eventLocation || 'YAYASAN JANAIZ').toUpperCase().trim(),
+    event_address: (activeProject?.eventAddress || 'SEDAYU CITY BLOK C NO.03 • JAKARTA UTARA').toUpperCase().trim(),
     certificate_id: 'CERT/2026/00192',
   }));
 

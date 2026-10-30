@@ -1,3 +1,4 @@
+import * as AppBindings from '../../bindings/certificate-generator/app/app';
 import type {
   Project,
   Template,
@@ -15,12 +16,14 @@ import type {
   RecipientFilter,
   PaginatedRecipients,
   ConflictStrategy,
+  BackupManifest,
+  RestoreOptions,
+  RestoreResult,
 } from '../../bindings/certificate-generator/internal/domain/models';
 import type {
   FileMetadata,
   TablePreview,
 } from '../../bindings/certificate-generator/internal/importer/models';
-import * as AppBindings from '../../bindings/certificate-generator/app/app';
 
 export interface IApiClient {
   createProject(input: CreateProjectInput): Promise<Project | null>;
@@ -71,9 +74,12 @@ export interface IApiClient {
   listBatchJobs(projectId: string): Promise<GenerationJob[]>;
   listBatchJobItems(jobId: string): Promise<GenerationJobItem[]>;
 
-  // OS file/folder openers
+  // Backup & Restore methods
+  backupProject(projectId: string, outputPath: string): Promise<BackupManifest | null>;
+  backupAll(outputPath: string): Promise<BackupManifest | null>;
+  restoreProject(opts: RestoreOptions): Promise<RestoreResult | null>;
   openFile(filePath: string): Promise<void>;
-  openDirectory(dirPath: string): Promise<void>;
+  openDirectory(path: string): Promise<void>;
 }
 
 // In-memory mock client used in testing or outside Wails desktop runtime
@@ -150,9 +156,6 @@ export class MockApiClient implements IApiClient {
       id: 'mock-' + Math.random().toString(36).substring(2, 9),
       name: input.newName,
       description: source.description,
-      eventDate: source.eventDate,
-      eventLocation: source.eventLocation,
-      eventAddress: source.eventAddress,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isArchived: false,
@@ -419,13 +422,52 @@ export class MockApiClient implements IApiClient {
     return this.jobItems.filter((i) => i.jobId === jobId);
   }
 
-  async openFile(filePath: string): Promise<void> {
-    console.log('[MockApiClient] Opening file:', filePath);
+  // Backup & Restore methods
+  async backupProject(projectId: string, _outputPath: string): Promise<BackupManifest | null> {
+    return {
+      schemaVersion: 1,
+      appVersion: '1.0.0',
+      backupType: 'project',
+      projectId,
+      projectName: 'Sample Project',
+      createdAt: new Date().toISOString(),
+      fileCount: 4,
+      totalBytes: 40960,
+    } as unknown as BackupManifest;
   }
 
-  async openDirectory(dirPath: string): Promise<void> {
-    console.log('[MockApiClient] Opening directory:', dirPath);
+  async backupAll(_outputPath: string): Promise<BackupManifest | null> {
+    return {
+      schemaVersion: 1,
+      appVersion: '1.0.0',
+      backupType: 'full',
+      createdAt: new Date().toISOString(),
+      fileCount: 12,
+      totalBytes: 1048576,
+    } as unknown as BackupManifest;
   }
+
+  async restoreProject(opts: RestoreOptions): Promise<RestoreResult | null> {
+    const restoredProj = {
+      id: 'restored-' + Math.random().toString(36).substring(2, 9),
+      name: 'Restored Project',
+      description: 'Restored from ' + opts.archiveFilePath,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isArchived: false,
+    } as unknown as Project;
+    this.projects.unshift(restoredProj);
+
+    return {
+      projectId: restoredProj.id,
+      projectName: restoredProj.name,
+      status: 'restored',
+      message: 'Proyek berhasil dipulihkan',
+    } as unknown as RestoreResult;
+  }
+
+  async openFile(_filePath: string): Promise<void> {}
+  async openDirectory(_path: string): Promise<void> {}
 }
 
 // Production client forwarding calls to generated Wails bindings
@@ -576,12 +618,24 @@ export class WailsApiClient implements IApiClient {
     return AppBindings.ListBatchJobItems(jobId);
   }
 
+  backupProject(projectId: string, outputPath: string): Promise<BackupManifest | null> {
+    return AppBindings.BackupProject(projectId, outputPath);
+  }
+
+  backupAll(outputPath: string): Promise<BackupManifest | null> {
+    return AppBindings.BackupAll(outputPath);
+  }
+
+  restoreProject(opts: RestoreOptions): Promise<RestoreResult | null> {
+    return AppBindings.RestoreProject(opts);
+  }
+
   openFile(filePath: string): Promise<void> {
     return AppBindings.OpenFile(filePath);
   }
 
-  openDirectory(dirPath: string): Promise<void> {
-    return AppBindings.OpenDirectory(dirPath);
+  openDirectory(path: string): Promise<void> {
+    return AppBindings.OpenDirectory(path);
   }
 }
 

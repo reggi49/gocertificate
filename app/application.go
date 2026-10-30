@@ -16,6 +16,7 @@ import (
 	"certificate-generator/internal/renderer/pdf"
 	"certificate-generator/internal/repository/sqlite"
 	"certificate-generator/internal/services"
+	"certificate-generator/internal/storage/backup"
 	"certificate-generator/internal/storage/filesystem"
 
 	wailsApp "github.com/wailsapp/wails/v3/pkg/application"
@@ -39,6 +40,7 @@ type App struct {
 	TemplateService  *services.TemplateService
 	RecipientService *services.RecipientService
 	JobService       *services.JobService
+	BackupManager    *backup.BackupManager
 }
 
 // DefaultDataDirectory returns standard OS user application support path.
@@ -94,6 +96,8 @@ func NewApp(cfg Config) (*App, error) {
 	generator := certgen.NewBatchGenerator(renderer, jRepo, rRepo, tRepo, pRepo, sm, logger)
 	jobSvc := services.NewJobService(generator, jRepo, sm, logger)
 
+	backupMgr := backup.NewBackupManager(pRepo, tRepo, rRepo, db, sm, logger)
+
 	// Clean up any stale interrupted jobs from past sudden exits
 	_, _ = jobSvc.CheckInterruptedJobs(ctx)
 
@@ -108,6 +112,7 @@ func NewApp(cfg Config) (*App, error) {
 		TemplateService:  templateSvc,
 		RecipientService: recipientSvc,
 		JobService:       jobSvc,
+		BackupManager:    backupMgr,
 	}, nil
 }
 
@@ -252,7 +257,6 @@ func (a *App) CountRecipients(projectID string) (int, error) {
 // Batch Generation Job Service Wrappers for Wails Service Binding
 
 func (a *App) StartBatchGeneration(cfg domain.BatchConfig) (*domain.GenerationJob, error) {
-	// Execute with progress callback emitting Wails events
 	progressCb := func(ev domain.ProgressEvent) {
 		if app := wailsApp.Get(); app != nil && app.Event != nil {
 			app.Event.Emit("batch:progress", ev)
@@ -286,7 +290,21 @@ func (a *App) ListBatchJobItems(jobID string) ([]domain.GenerationJobItem, error
 	return a.JobService.ListJobItems(context.Background(), jobID)
 }
 
-// System File & Directory Openers
+// Backup & Restore Service Wrappers for Wails Service Binding
+
+func (a *App) BackupProject(projectID string, outputPath string) (*domain.BackupManifest, error) {
+	return a.BackupManager.BackupProject(context.Background(), projectID, outputPath)
+}
+
+func (a *App) BackupAll(outputPath string) (*domain.BackupManifest, error) {
+	return a.BackupManager.BackupAll(context.Background(), outputPath)
+}
+
+func (a *App) RestoreProject(opts domain.RestoreOptions) (*domain.RestoreResult, error) {
+	return a.BackupManager.RestoreProject(context.Background(), opts)
+}
+
+// Desktop Platform File and Directory Openers
 
 func (a *App) OpenFile(filePath string) error {
 	filePath = filepath.Clean(filePath)

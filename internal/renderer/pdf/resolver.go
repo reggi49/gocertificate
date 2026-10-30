@@ -3,6 +3,7 @@ package pdf
 import (
 	"regexp"
 	"strings"
+	"unicode"
 
 	"certificate-generator/internal/domain"
 )
@@ -84,4 +85,54 @@ func ReplacePlaceholders(input string, variables map[string]string) string {
 		}
 		return m
 	})
+}
+
+// ToTitleCase capitalizes the first letter of each word in a string,
+// making the rest of the letters lowercase, while preserving abbreviations and punctuation.
+func ToTitleCase(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.Grow(len(s))
+
+	capitalizeNext := true
+	for i, r := range s {
+		if unicode.IsLetter(r) {
+			if capitalizeNext {
+				b.WriteRune(unicode.ToUpper(r))
+				capitalizeNext = false
+			} else {
+				// If immediately following a dot (like M.Sc. or Ph.D.), keep capital if it was already capital
+				if i > 1 && s[i-1] == '.' {
+					b.WriteRune(unicode.ToUpper(r))
+				} else {
+					b.WriteRune(unicode.ToLower(r))
+				}
+			}
+		} else {
+			b.WriteRune(r)
+			if unicode.IsSpace(r) || r == '-' || r == '/' || r == '(' || r == '[' || r == '.' {
+				capitalizeNext = true
+			}
+		}
+	}
+
+	return b.String()
+}
+
+// ApplyTextTransform applies text casing transformations: "uppercase", "capitalize", "lowercase", or "none".
+func ApplyTextTransform(text string, transform string) string {
+	switch strings.ToLower(strings.TrimSpace(transform)) {
+	case "uppercase":
+		return strings.ToUpper(text)
+	case "lowercase":
+		return strings.ToLower(text)
+	case "capitalize":
+		return ToTitleCase(text)
+	default:
+		return text
+	}
 }

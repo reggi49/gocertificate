@@ -40,7 +40,8 @@ type ElementProperties struct {
 	VerticalAlignment string  `json:"verticalAlignment,omitempty"` // "top", "middle", "bottom"
 	LineHeight        float64 `json:"lineHeight,omitempty"`
 	LetterSpacing     float64 `json:"letterSpacing,omitempty"`
-	FitMode           string  `json:"fitMode,omitempty"` // "shrink", "wrap", "fixed"
+	FitMode           string  `json:"fitMode,omitempty"`       // "shrink", "wrap", "fixed"
+	TextTransform     string  `json:"textTransform,omitempty"` // "none", "uppercase", "capitalize", "lowercase"
 
 	// Shape / Line attributes
 	FillColor    string  `json:"fillColor,omitempty"`
