@@ -56,14 +56,14 @@ describe('GenerationHistoryView Component', () => {
   it('renders list of past jobs and opens batch modal', async () => {
     render(<GenerationHistoryView />);
 
-    expect(screen.getByText('Riwayat Batch Generation')).toBeDefined();
+    expect(screen.getByText('Siap Cetak')).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByText('50 / 50 Sertifikat')).toBeDefined();
       expect(screen.getByText('Selesai')).toBeDefined();
     });
 
-    const newBatchBtn = screen.getByRole('button', { name: /eksekusi batch baru/i });
+    const newBatchBtn = screen.getByRole('button', { name: /cetak batch baru/i });
     fireEvent.click(newBatchBtn);
 
     expect(screen.getByText('Generate Batch Sertifikat')).toBeDefined();

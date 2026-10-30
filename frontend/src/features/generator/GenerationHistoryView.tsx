@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  History,
+  Printer,
   CheckCircle2,
   AlertTriangle,
   Play,
@@ -54,12 +54,15 @@ export const GenerationHistoryView: React.FC = () => {
     try {
       const list = await client.listBatchJobs(activeProject.id);
       setJobs(list);
+      if (list && list.length > 0) {
+        handleSelectJob(list[0]);
+      }
     } catch (err) {
       console.error('Failed to load batch jobs:', err);
     } finally {
       setLoading(false);
     }
-  }, [activeProject, client]);
+  }, [activeProject, client, handleSelectJob]);
 
   useEffect(() => {
     let ignore = false;
@@ -70,7 +73,7 @@ export const GenerationHistoryView: React.FC = () => {
         const list = await client.listBatchJobs(activeProject.id);
         if (!ignore) {
           setJobs(list);
-          if (list.length > 0 && !selectedJob) {
+          if (list && list.length > 0) {
             handleSelectJob(list[0]);
           }
         }
@@ -88,7 +91,7 @@ export const GenerationHistoryView: React.FC = () => {
     return () => {
       ignore = true;
     };
-  }, [activeProject, client, handleSelectJob, selectedJob]);
+  }, [activeProject, client, handleSelectJob]);
 
   const getItemFilePath = (item: GenerationJobItem) => {
     if (!selectedJob?.outputPath || !item.outputFileName) return '';
@@ -129,7 +132,7 @@ export const GenerationHistoryView: React.FC = () => {
   if (!activeProject) {
     return (
       <div className="py-20 text-center text-slate-500 text-sm">
-        Pilih atau buka acara terlebih dahulu untuk melihat riwayat batch generation.
+        Pilih atau buka acara terlebih dahulu untuk melihat berkas siap cetak.
       </div>
     );
   }
@@ -140,10 +143,10 @@ export const GenerationHistoryView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-            Riwayat Batch Generation
+            Siap Cetak
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            Daftar pekerjaan ekspor dan status produksi massal sertifikat untuk acara:{' '}
+            Daftar berkas cetak dan status produksi massal sertifikat untuk acara:{' '}
             <span className="font-semibold text-slate-700">{activeProject.name}</span>.
           </p>
         </div>
@@ -153,27 +156,27 @@ export const GenerationHistoryView: React.FC = () => {
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-xl shadow-sm transition self-start sm:self-auto cursor-pointer"
         >
           <Play className="w-4 h-4" />
-          Eksekusi Batch Baru
+          Cetak Batch Baru
         </button>
       </div>
 
       {loading && jobs.length === 0 ? (
         <div className="py-20 text-center text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
-          Memuat riwayat pekerjaan batch...
+          Memuat daftar berkas siap cetak...
         </div>
       ) : jobs.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center text-center p-8 bg-white border-2 border-dashed border-slate-200 rounded-2xl">
-          <History className="w-12 h-12 text-slate-300 mb-3" />
-          <h3 className="text-base font-bold text-slate-700">Belum Ada Riwayat Batch</h3>
+          <Printer className="w-12 h-12 text-slate-300 mb-3" />
+          <h3 className="text-base font-bold text-slate-700">Belum Ada Berkas Siap Cetak</h3>
           <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
-            Mulai produksi puluhan hingga ribuan sertifikat secara otomatis dengan menekan tombol eksekusi batch.
+            Mulai produksi puluhan hingga ribuan sertifikat secara otomatis dengan menekan tombol eksekusi cetak.
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer"
           >
             <Play className="w-3.5 h-3.5" />
-            Mulai Batch Sekarang
+            Mulai Cetak Sekarang
           </button>
         </div>
       ) : (
@@ -181,7 +184,7 @@ export const GenerationHistoryView: React.FC = () => {
           {/* Jobs List (1 col) */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Daftar Pekerjaan ({jobs.length})
+              Daftar Pekerjaan Cetak ({jobs.length})
             </h3>
             <div className="space-y-2.5">
               {jobs.map((job) => {

@@ -4,7 +4,7 @@ import {
   FolderKanban,
   Award,
   Users,
-  History,
+  Printer,
   Settings,
   FolderGit2,
 } from 'lucide-react';
@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: 'projects' as NavItem, label: 'Acara', icon: FolderKanban },
     { id: 'templates' as NavItem, label: 'Templates', icon: Award, disabled: !activeProject },
     { id: 'recipients' as NavItem, label: 'Penerima', icon: Users, disabled: !activeProject },
-    { id: 'history' as NavItem, label: 'Riwayat Batch', icon: History },
+    { id: 'history' as NavItem, label: 'Siap Cetak', icon: Printer },
     { id: 'settings' as NavItem, label: 'Pengaturan', icon: Settings },
   ];
 

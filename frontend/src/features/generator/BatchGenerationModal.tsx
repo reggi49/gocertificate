@@ -173,7 +173,6 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
       const job = await client.startBatchGeneration(cfg);
       setActiveJob(job);
       setIsRunning(false);
-      onSuccess();
     } catch (err: any) {
       setError(err.message || 'Gagal memulai proses batch');
       setIsRunning(false);
@@ -220,7 +219,16 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
           </div>
 
           {!isRunning && (
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+            <button
+              onClick={() => {
+                if (activeJob) {
+                  onSuccess();
+                } else {
+                  onClose();
+                }
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
               <X className="w-5 h-5" />
             </button>
           )}
@@ -476,12 +484,14 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
 
           {activeJob && (
             <button
+              type="button"
               onClick={() => {
-                onClose();
+                onSuccess();
               }}
-              className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
             >
-              Tutup
+              <CheckCircle2 className="w-4 h-4" />
+              OK, Buka Siap Cetak
             </button>
           )}
         </div>

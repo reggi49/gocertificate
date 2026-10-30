@@ -52,7 +52,7 @@ export const AppShell: React.FC = () => {
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-slate-800 capitalize">
               {currentTab === 'history'
-                ? 'Riwayat Batch'
+                ? 'Siap Cetak'
                 : currentTab === 'recipients'
                 ? 'Penerima'
                 : currentTab === 'templates'
@@ -107,7 +107,9 @@ export const AppShell: React.FC = () => {
 
             {currentTab === 'templates' && <TemplatesView />}
 
-            {currentTab === 'recipients' && <RecipientsView />}
+            {currentTab === 'recipients' && (
+              <RecipientsView onNavigateToHistory={() => setCurrentTab('history')} />
+            )}
 
             {currentTab === 'history' && <GenerationHistoryView />}
 

@@ -18,7 +18,11 @@ import { BatchGenerationModal } from '../generator/BatchGenerationModal';
 import { toTitleCase } from '../../lib/units';
 import type { Recipient } from '../../../bindings/certificate-generator/internal/domain/models';
 
-export const RecipientsView: React.FC = () => {
+export interface RecipientsViewProps {
+  onNavigateToHistory?: () => void;
+}
+
+export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHistory }) => {
   const { activeProject, client } = useProjectStore();
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -446,6 +450,9 @@ export const RecipientsView: React.FC = () => {
             setIsBatchModalOpen(false);
             setBatchRecipientIds(undefined);
             setSelectedIds([]);
+            if (onNavigateToHistory) {
+              onNavigateToHistory();
+            }
           }}
         />
       )}

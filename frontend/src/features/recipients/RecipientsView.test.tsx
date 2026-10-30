@@ -72,4 +72,33 @@ describe('RecipientsView & Import Workflow', () => {
       expect(screen.getByText('Siti Aminah, M.Kom.')).toBeDefined();
     });
   });
+
+  it('triggers batch generation and navigates to history on completion', async () => {
+    let navigated = false;
+    render(<RecipientsView onNavigateToHistory={() => { navigated = true; }} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Budi Wicaksono, M.Sc.')).toBeDefined();
+    });
+
+    const printBtn = screen.getByRole('button', { name: /^cetak sertifikat$/i });
+    fireEvent.click(printBtn);
+
+    expect(screen.getByText('Generate Batch Sertifikat')).toBeDefined();
+
+    const exportBtn = await screen.findByRole('button', { name: /mulai ekspor sekarang/i });
+    await waitFor(() => {
+      expect(exportBtn.hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Batch Generation Selesai!')).toBeDefined();
+    });
+
+    const okBtn = screen.getByRole('button', { name: /ok, buka siap cetak/i });
+    fireEvent.click(okBtn);
+
+    expect(navigated).toBe(true);
+  });
 });
