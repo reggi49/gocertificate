@@ -133,6 +133,27 @@ npm run dev
 ```
 Buka browser di `http://localhost:5173`. Frontend sudah dilengkapi otomatis dengan `MockApiClient` bawaan sehingga UI, kanvas milimeter, dan alur kerja import dapat diuji dan dikembangkan secara instan dengan hot-reload Vite tanpa perlu compile Go setiap saat.
 
+#### Opsi C: Kompilasi Executable untuk Windows (.exe)
+
+Karena arsitektur backend Go dan database SQLite menggunakan pure-Go (`modernc.org/sqlite`) tanpa dependensi CGO, binary Windows `.exe` dapat di-cross-compile langsung dari macOS maupun Linux:
+
+```bash
+# 1. Pastikan frontend sudah di-build
+cd frontend && npm run build && cd ..
+
+# 2. Generate resource Windows (ikon dan manifest DPI)
+~/go/bin/wails3 generate syso -arch amd64 -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out wails_windows_amd64.syso
+
+# 3. Kompilasi binary Windows .exe (64-bit GUI mode)
+mkdir -p build/bin
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags production -trimpath -ldflags="-w -s -H windowsgui" -o "build/bin/certificate-generator.exe" .
+
+# 4. Bersihkan file syso sementara
+rm -f wails_windows_amd64.syso
+```
+
+Hasil executable Windows berada di: `build/bin/certificate-generator.exe`. Berkas ini dapat langsung didistribusikan dan dijalankan pada sistem operasi Windows 10/11 (64-bit).
+
 ---
 
 ## 🧪 Menjalankan Pengujian Otomatis (Automated Tests)

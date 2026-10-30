@@ -17,7 +17,7 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
 - PDF Engine: `github.com/signintech/gopdf v0.32.0`
 - QR Code Engine: `github.com/skip2/go-qrcode`
 - Excel Engine: `github.com/xuri/excelize/v2 v2.11.0`
-- Archive Engine: standard `archive/zip`
+- Archive Engine: standard `archive/zip` with SHA-256 integrity verification
 - Frontend: `React 19`, `konva v10.9.0`, `react-konva v19.3.2`, `vite v8.3.5`, `vitest v5.0.5`, `tailwindcss v4`, `zustand v5.0.16`
 
 ## Existing Architecture
@@ -29,6 +29,7 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
   - Template entity, default paper presets, and validation.
   - Recipient entity, validation, column mapping, and conflict strategies.
   - Generation job entity, state machine transitions, job item results, batch config, and progress event schemas.
+  - Backup manifest schema (`manifest.json`), SHA-256 file checksums, and restore options.
   - Application settings model and storage info.
 - `internal/importer/`:
   - `CSVParser`: CSV parser with automatic delimiter detection (comma, semicolon, tab), multiline quotes support, and empty line filtering.
@@ -39,6 +40,11 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
   - Path traversal protection (`SafeResolve`).
   - Cross-platform filename sanitization.
   - Atomic write operations.
+- `internal/storage/backup/`:
+  - `BackupManager`:
+    - `BackupProject`: Standalone project export with `manifest.json` and SHA-256 checksums.
+    - `BackupAll`: Complete application data export.
+    - `RestoreProject`: Secure ZIP extraction with **ZIP Slip path traversal protection**, manifest verification, SHA-256 integrity check, and conflict policies (`create_new`, `overwrite`, `abort`).
 - `internal/repository/sqlite/`:
   - Pure-Go SQLite connection handling (WAL mode, busy timeout).
   - Embedded SQL migration runner (`001_initial_schema.sql`, `002_add_event_details_to_projects.sql`, `003_generation_job_items.sql`).
@@ -82,28 +88,29 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
   - Templates view with template listing, duplication, deletion, and visual designer launcher.
   - Template Designer:
     - React-Konva visual canvas editor with millimeter canonical coordinates.
-    - TopBar with paper presets, undo/redo, zoom, grid toggle, snap toggle, and save/preview.
+    - TopBar with paper presets, undo/redo, zoom, grid toggle, snap toggle, print button, and save/preview.
     - LeftPanel with elements catalog and Layer manager.
     - RightPanel property inspector.
     - Bounded undo/redo history (max 50 snapshots).
     - Grid and alignment guides snapping.
-    - Global keyboard shortcuts and debounced autosave.
+    - Global keyboard shortcuts dialog (`Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+P`, `Ctrl+D`, `Delete`, `Arrow keys`).
+    - Unsaved changes alert when leaving designer.
     - Interactive preview modal with Indonesian placeholder data and test PDF vector rendering.
+  - Print View:
+    - Dedicated printing modal isolating the certificate on pure white canvas.
+    - CSS `@media print` rules with zero margin and background print enforcement.
   - Recipients view:
     - Table with search, pagination (10, 25, 50, 100), bulk selection, manual CRUD, and delete all.
     - Import Wizard Modal: 5-step wizard.
   - Generation History view:
     - List of batch generation jobs with status indicators.
-    - Output location badge with file path.
+    - Output location badge with file path and direct folder opener.
     - Rendered certificate items summary table.
     - Trigger modal for new batch generation.
     - Retry failed records button.
-  - Batch Generation Modal:
-    - Template selector and recipient count indicator.
-    - Concurrency worker slider (1-4).
-    - Output options (Streaming ZIP vs Individual PDFs).
-    - Live progress bar with real-time percentage and cancel button.
-  - Settings view for user preferences.
+  - Settings view:
+    - Theme, language, autosave interval, and export directory configuration.
+    - Backup & Restore management card (backup project, backup all data, restore archive with ZIP Slip & SHA-256 validation, conflict strategies).
   - Zustand state stores (`useProjectStore`, `useDesignerStore`) with type-safe Wails v3 bindings and mock testing fallback.
 
 ## Completed Phases
@@ -113,23 +120,23 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
 - **Phase 3 — Recipient Management**: Completed (**PASS**). Recipient CRUD, pagination, search, bulk selection, CSV & XLSX import with worksheet selection, column mapping, date/email validation, duplicate detection, transactional batch storage, and 1,000-row fixture import.
 - **Phase 4 — Certificate Rendering**: Completed (**PASS**). Production GoPDF vector renderer, font resolver, Unicode Indonesian support, text measurement, horizontal/vertical alignment, shrink-to-fit, word wrapping, vector shapes, QR code embedding, safe atomic writes, filename sanitization, structural PDF validation, and 6 visual PDF fixture artifacts.
 - **Phase 5 — Batch Generation**: Completed (**PASS**). Bounded worker pool (concurrency 1-4), context cancellation, streaming ZIP creation, `export-summary.csv`, temporary directory cleanup, retry failed items, interrupted job recovery, and benchmark 1.000 certificates (~5.9 ms/cert).
+- **Phase 6 — Printing, Backup, Restore, and Polish**: Completed (**PASS**). Dedicated PrintView with print CSS rules, portable ZIP backup generation with SHA-256 manifests, secure restore with **ZIP Slip protection**, conflict resolution (`create_new`, `overwrite`, `abort`), unsaved changes guard, keyboard shortcuts modal, and UI polish.
 
 ## Missing Features / Roadmap
-- **Phase 6 — Printing, Backup, Restore, and Polish**: Native printing, project backup/restore with ZIP slip protection, recovery from interrupted jobs.
 - **Phase 7 — Cross-Platform QA and Release**: Packaging, signing guides, and release notes.
 
 ## Technical Risks & Mitigations
-- *Risk*: Memory exhaustion when rendering thousands of certificates simultaneously.
-  *Mitigation*: Bounded worker pool (concurrency 1 default) renders certificates sequentially to temporary storage and streams directly to ZIP, keeping memory allocated under 100 MB RAM.
-- *Risk*: Data inconsistency when application crashes during a batch generation.
-  *Mitigation*: Transactional job item logging and startup recovery (`CheckInterruptedJobs`) clean up orphaned state cleanly.
+- *Risk*: Malicious backup archive trying to overwrite host system binaries via path traversal (`../../`).
+  *Mitigation*: `safeExtractZip` strictly validates canonical destination paths and rejects any entry with `..`, drive letters, or absolute paths before writing.
+- *Risk*: Data loss during restore failure.
+  *Mitigation*: Database writes are performed inside an atomic transaction (`tx.BeginTx()`) and temporary files are isolated in `os.TempDir()` with guaranteed cleanup.
 
 ## Current Test Status
-- Backend Go tests (`go test -count=1 -v -race ./...`): **38 passed, 0 failed, 0 race warnings**.
+- Backend Go tests (`go test -count=1 -v -race ./...`): **44 passed, 0 failed, 0 race warnings**.
 - Go static checks (`go vet ./...`): **PASS**.
-- Frontend unit tests (`npx vitest run`): **24 passed, 0 failed**.
-- Frontend production build (`npm run build`): **PASS** (minified bundle 759 kB).
+- Frontend unit tests (`npx vitest run`): **27 passed, 0 failed**.
+- Frontend production build (`npm run build`): **PASS** (minified bundle 775.9 kB).
 - Go desktop binary build (`go build`): **PASS** (`build/bin/certificate-generator` 22 MB).
 
 ## Recommended Next Phase
-**Phase 6 — Printing, Backup, Restore, and Polish**
+**Phase 7 — Cross-Platform QA and Release**

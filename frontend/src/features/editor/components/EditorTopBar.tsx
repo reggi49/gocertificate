@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Undo2,
   Redo2,
@@ -11,6 +11,8 @@ import {
   Eye,
   Check,
   ChevronDown,
+  Printer,
+  Keyboard,
 } from 'lucide-react';
 import { useDesignerStore } from '../designerStore';
 import type { PaperPreset } from '../types';
@@ -18,9 +20,10 @@ import type { PaperPreset } from '../types';
 interface EditorTopBarProps {
   onSave: () => void;
   onPreview: () => void;
+  onPrint?: () => void;
 }
 
-export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview }) => {
+export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview, onPrint }) => {
   const {
     templateName,
     document,
@@ -39,10 +42,11 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview })
     setPaperPreset,
   } = useDesignerStore();
 
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
-  // Determine current preset name if matching
   const getCurrentPreset = (): PaperPreset => {
     const { widthMm, heightMm, orientation } = document.page;
     if (widthMm === 297 && heightMm === 210 && orientation === 'landscape') return 'A4_Landscape';
@@ -145,6 +149,15 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview })
         >
           <Magnet className="w-4 h-4" />
         </button>
+
+        {/* Keyboard Shortcuts Dialog Trigger */}
+        <button
+          onClick={() => setShowShortcuts(!showShortcuts)}
+          title="Daftar Pintasan Keyboard"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 transition"
+        >
+          <Keyboard className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Save Status & Action Buttons */}
@@ -163,6 +176,18 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview })
             </span>
           )}
         </div>
+
+        {/* Native Print Dialog Button */}
+        {onPrint && (
+          <button
+            onClick={onPrint}
+            title="Cetak Langsung (Native Print View)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-600" />
+            Cetak
+          </button>
+        )}
 
         {/* Preview Button */}
         <button
@@ -183,6 +208,48 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ onSave, onPreview })
           {isSaving ? 'Menyimpan...' : 'Simpan'}
         </button>
       </div>
+
+      {/* Keyboard Shortcuts Popover */}
+      {showShortcuts && (
+        <div className="absolute right-4 top-16 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-100">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 font-bold text-slate-800">
+            <span>Pintasan Keyboard</span>
+            <button onClick={() => setShowShortcuts(false)} className="text-slate-400 hover:text-slate-600">
+              ✕
+            </button>
+          </div>
+          <div className="space-y-1.5 text-slate-600">
+            <div className="flex justify-between">
+              <span>Undo</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Ctrl + Z</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Redo</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Ctrl + Y</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Simpan Manual</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Ctrl + S</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Duplikasi Objek</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Ctrl + D</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Hapus Objek Terpilih</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Delete / Backspace</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Geser Posisi Objek</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Arrow Keys (1 mm)</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Geser Cepat Objek</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-300 font-mono">Shift + Arrow (5 mm)</kbd>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

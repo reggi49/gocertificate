@@ -6,6 +6,7 @@ import { EditorLeftPanel } from './components/EditorLeftPanel';
 import { StageContainer } from './components/StageContainer';
 import { EditorRightPanel } from './components/EditorRightPanel';
 import { PreviewModal } from './components/PreviewModal';
+import { PrintView } from '../printing/PrintView';
 
 interface TemplateDesignerProps {
   onBack?: () => void;
@@ -30,6 +31,7 @@ export const TemplateDesigner: React.FC<TemplateDesignerProps> = () => {
   } = useDesignerStore();
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
   const autosaveTimerRef = useRef<any>(null);
 
   const handleSave = useCallback(async () => {
@@ -91,6 +93,9 @@ export const TemplateDesigner: React.FC<TemplateDesignerProps> = () => {
       } else if (isMeta && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSave();
+      } else if (isMeta && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setIsPrintOpen(true);
       } else if (isMeta && e.key.toLowerCase() === 'd') {
         if (!isInput && selectedId) {
           e.preventDefault();
@@ -133,6 +138,7 @@ export const TemplateDesigner: React.FC<TemplateDesignerProps> = () => {
       <EditorTopBar
         onSave={handleSave}
         onPreview={() => setIsPreviewOpen(true)}
+        onPrint={() => setIsPrintOpen(true)}
       />
 
       {/* Main Workspace: Left Panel + Canvas + Right Panel */}
@@ -147,6 +153,20 @@ export const TemplateDesigner: React.FC<TemplateDesignerProps> = () => {
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
       />
+
+      {/* Dedicated Print View */}
+      {isPrintOpen && (
+        <PrintView
+          document={document}
+          variables={{
+            recipient_name: 'Budi Santoso, S.Kom.',
+            event_name: 'Konferensi AI 2026',
+            issue_date: '30 Oktober 2026',
+            certificate_id: 'CERT-001',
+          }}
+          onClose={() => setIsPrintOpen(false)}
+        />
+      )}
     </div>
   );
 };
