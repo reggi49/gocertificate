@@ -11,6 +11,7 @@ import {
   X,
   Sparkles,
   Printer,
+  AlertTriangle,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ImportWizardModal } from './ImportWizardModal';
@@ -41,6 +42,9 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchRecipientIds, setBatchRecipientIds] = useState<string[] | undefined>(undefined);
+  const [recipientToDelete, setRecipientToDelete] = useState<Recipient | null>(null);
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [isDeletingLoading, setIsDeletingLoading] = useState(false);
 
   const loadRecipients = useCallback(async () => {
     if (!activeProject) return;
@@ -112,36 +116,32 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
     );
   };
 
-  const handleDeleteSelected = async () => {
-    if (!window.confirm(`Hapus ${selectedIds.length} data penerima terpilih?`)) return;
+  const handleConfirmDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    setIsDeletingLoading(true);
     try {
       await client.deleteRecipients(selectedIds);
       setSelectedIds([]);
+      setIsDeletingSelected(false);
       await loadRecipients();
     } catch (err) {
       console.error('Failed to delete selected recipients:', err);
+    } finally {
+      setIsDeletingLoading(false);
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (!activeProject) return;
-    if (!window.confirm('Hapus SEMUA data penerima untuk proyek ini? Tindakan ini tidak dapat dibatalkan.')) return;
+  const handleConfirmDeleteOne = async () => {
+    if (!recipientToDelete) return;
+    setIsDeletingLoading(true);
     try {
-      await client.deleteAllRecipients(activeProject.id);
-      setSelectedIds([]);
-      await loadRecipients();
-    } catch (err) {
-      console.error('Failed to delete all recipients:', err);
-    }
-  };
-
-  const handleDeleteOne = async (id: string) => {
-    if (!window.confirm('Hapus penerima ini?')) return;
-    try {
-      await client.deleteRecipient(id);
+      await client.deleteRecipient(recipientToDelete.id);
+      setRecipientToDelete(null);
       await loadRecipients();
     } catch (err) {
       console.error('Failed to delete recipient:', err);
+    } finally {
+      setIsDeletingLoading(false);
     }
   };
 
@@ -175,26 +175,6 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
         </div>
 
         <div className="flex items-center gap-2">
-          {total > 0 && (
-            <button
-              onClick={handleDeleteAll}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer border border-red-200"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Hapus Semua
-            </button>
-          )}
-
-          <button
-            onClick={() => handleOpenPrintOrBatch(selectedIds.length > 0 ? selectedIds : undefined)}
-            disabled={recipients.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
-            title="Cetak sertifikat penerima dan catat ke riwayat batch"
-          >
-            <Printer className="w-4 h-4" />
-            {selectedIds.length > 0 ? `Cetak (${selectedIds.length} Terpilih)` : 'Cetak Sertifikat'}
-          </button>
-
           <button
             onClick={() => setIsCreateOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition cursor-pointer"
@@ -247,7 +227,7 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
                   {selectedIds.length} Terpilih
                 </span>
                 <button
-                  onClick={handleDeleteSelected}
+                  onClick={() => setIsDeletingSelected(true)}
                   className="text-xs text-red-700 font-semibold underline hover:text-red-900 ml-2 cursor-pointer"
                 >
                   Hapus
@@ -370,7 +350,7 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteOne(rec.id)}
+                            onClick={() => setRecipientToDelete(rec)}
                             title="Hapus"
                             className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
                           >
@@ -455,6 +435,78 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
             }
           }}
         />
+      )}
+
+      {/* Delete Single Recipient Confirmation Modal */}
+      {recipientToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg mb-1">Hapus Data Penerima?</h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Apakah Anda yakin ingin menghapus penerima{' '}
+                <span className="font-semibold text-slate-800">"{recipientToDelete.fullName}"</span>?
+              </p>
+              <div className="flex justify-end gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setRecipientToDelete(null)}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteOne}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeletingLoading ? 'Menghapus...' : 'Ya, Hapus'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Multiple Selected Recipients Confirmation Modal */}
+      {isDeletingSelected && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg mb-1">Hapus Data Terpilih?</h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Apakah Anda yakin ingin menghapus{' '}
+                <span className="font-semibold text-slate-800">{selectedIds.length} penerima terpilih</span>? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex justify-end gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setIsDeletingSelected(false)}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteSelected}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeletingLoading ? 'Menghapus...' : `Ya, Hapus ${selectedIds.length} Data`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

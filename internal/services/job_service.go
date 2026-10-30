@@ -92,6 +92,14 @@ func (s *JobService) ListJobItems(ctx context.Context, jobID string) ([]domain.G
 	return s.jobRepo.ListJobItems(ctx, jobID)
 }
 
+// DeleteJob permanently removes a batch generation job and its rendered items from database.
+func (s *JobService) DeleteJob(ctx context.Context, id string) error {
+	if err := filesystem.ValidateID(id); err != nil {
+		return domain.ErrJobNotFound
+	}
+	return s.jobRepo.DeleteJob(ctx, id)
+}
+
 // CheckInterruptedJobs discovers unfinished jobs across restarts and marks them failed or cancelled cleanly.
 func (s *JobService) CheckInterruptedJobs(ctx context.Context) ([]domain.GenerationJob, error) {
 	interrupted, err := s.jobRepo.GetInterruptedJobs(ctx)

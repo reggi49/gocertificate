@@ -17,6 +17,7 @@ type TemplateRepository interface {
 	ListByProject(ctx context.Context, projectID string) ([]domain.Template, error)
 	Update(ctx context.Context, t *domain.Template) error
 	Delete(ctx context.Context, id string) error
+	SetDefault(ctx context.Context, projectID string, templateID string) error
 }
 
 // SQLiteTemplateRepository implements TemplateRepository.
@@ -31,14 +32,26 @@ func NewTemplateRepository(db *sql.DB) *SQLiteTemplateRepository {
 
 // Create inserts a new template record.
 func (r *SQLiteTemplateRepository) Create(ctx context.Context, t *domain.Template) error {
+	isDefaultInt := 0
+	if t.IsDefault {
+		isDefaultInt = 1
+	} else {
+		var count int
+		_ = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM templates WHERE project_id = ?", t.ProjectID).Scan(&count)
+		if count == 0 {
+			isDefaultInt = 1
+			t.IsDefault = true
+		}
+	}
+
 	query := `
-		INSERT INTO templates (id, project_id, name, document_json, schema_version, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO templates (id, project_id, name, document_json, schema_version, is_default, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	createdAtStr := t.CreatedAt.UTC().Format(time.RFC3339)
 	updatedAtStr := t.UpdatedAt.UTC().Format(time.RFC3339)
 
-	_, err := r.db.ExecContext(ctx, query, t.ID, t.ProjectID, t.Name, t.DocumentJSON, t.SchemaVersion, createdAtStr, updatedAtStr)
+	_, err := r.db.ExecContext(ctx, query, t.ID, t.ProjectID, t.Name, t.DocumentJSON, t.SchemaVersion, isDefaultInt, createdAtStr, updatedAtStr)
 	if err != nil {
 		return fmt.Errorf("failed to insert template: %w", err)
 	}
@@ -48,11 +61,12 @@ func (r *SQLiteTemplateRepository) Create(ctx context.Context, t *domain.Templat
 // GetByID retrieves a template by ID.
 func (r *SQLiteTemplateRepository) GetByID(ctx context.Context, id string) (*domain.Template, error) {
 	query := `
-		SELECT id, project_id, name, document_json, schema_version, created_at, updated_at
+		SELECT id, project_id, name, document_json, schema_version, is_default, created_at, updated_at
 		FROM templates
 		WHERE id = ?
 	`
 	var t domain.Template
+	var isDefaultInt int
 	var createdAtStr, updatedAtStr string
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
@@ -61,6 +75,7 @@ func (r *SQLiteTemplateRepository) GetByID(ctx context.Context, id string) (*dom
 		&t.Name,
 		&t.DocumentJSON,
 		&t.SchemaVersion,
+		&isDefaultInt,
 		&createdAtStr,
 		&updatedAtStr,
 	)
@@ -71,19 +86,20 @@ func (r *SQLiteTemplateRepository) GetByID(ctx context.Context, id string) (*dom
 		return nil, fmt.Errorf("failed to query template by id: %w", err)
 	}
 
+	t.IsDefault = (isDefaultInt == 1)
 	t.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 	t.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
 
 	return &t, nil
 }
 
-// ListByProject returns all templates associated with a project ordered by updated_at desc.
+// ListByProject returns all templates associated with a project ordered by is_default desc, updated_at desc.
 func (r *SQLiteTemplateRepository) ListByProject(ctx context.Context, projectID string) ([]domain.Template, error) {
 	query := `
-		SELECT id, project_id, name, document_json, schema_version, created_at, updated_at
+		SELECT id, project_id, name, document_json, schema_version, is_default, created_at, updated_at
 		FROM templates
 		WHERE project_id = ?
-		ORDER BY updated_at DESC
+		ORDER BY is_default DESC, updated_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, projectID)
 	if err != nil {
@@ -94,6 +110,7 @@ func (r *SQLiteTemplateRepository) ListByProject(ctx context.Context, projectID 
 	var templates []domain.Template
 	for rows.Next() {
 		var t domain.Template
+		var isDefaultInt int
 		var createdAtStr, updatedAtStr string
 
 		if err := rows.Scan(
@@ -102,12 +119,14 @@ func (r *SQLiteTemplateRepository) ListByProject(ctx context.Context, projectID 
 			&t.Name,
 			&t.DocumentJSON,
 			&t.SchemaVersion,
+			&isDefaultInt,
 			&createdAtStr,
 			&updatedAtStr,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan template row: %w", err)
 		}
 
+		t.IsDefault = (isDefaultInt == 1)
 		t.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 		t.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
 		templates = append(templates, t)
@@ -144,6 +163,10 @@ func (r *SQLiteTemplateRepository) Update(ctx context.Context, t *domain.Templat
 
 // Delete permanently removes a template from SQLite.
 func (r *SQLiteTemplateRepository) Delete(ctx context.Context, id string) error {
+	var wasDefault int
+	var projectID string
+	_ = r.db.QueryRowContext(ctx, "SELECT is_default, project_id FROM templates WHERE id = ?", id).Scan(&wasDefault, &projectID)
+
 	query := `DELETE FROM templates WHERE id = ?`
 	res, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -157,5 +180,41 @@ func (r *SQLiteTemplateRepository) Delete(ctx context.Context, id string) error 
 	if rows == 0 {
 		return domain.ErrTemplateNotFound
 	}
+
+	if wasDefault == 1 && projectID != "" {
+		_, _ = r.db.ExecContext(ctx, `
+			UPDATE templates SET is_default = 1
+			WHERE id = (SELECT id FROM templates WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1)
+		`, projectID)
+	}
+
 	return nil
+}
+
+// SetDefault sets a template as the default for its project.
+func (r *SQLiteTemplateRepository) SetDefault(ctx context.Context, projectID string, templateID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "UPDATE templates SET is_default = 0 WHERE project_id = ?", projectID); err != nil {
+		return fmt.Errorf("failed to reset default templates: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, "UPDATE templates SET is_default = 1 WHERE project_id = ? AND id = ?", projectID, templateID)
+	if err != nil {
+		return fmt.Errorf("failed to set default template: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return domain.ErrTemplateNotFound
+	}
+
+	return tx.Commit()
 }

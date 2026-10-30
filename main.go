@@ -36,7 +36,7 @@ func main() {
 	})
 
 	wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "Certificate Generator",
+		Title:     "Certificate Generator Janaiz",
 		Width:     1280,
 		Height:    850,
 		URL:       "/",

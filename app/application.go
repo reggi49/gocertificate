@@ -205,6 +205,10 @@ func (a *App) DeleteTemplate(id string) error {
 	return a.TemplateService.DeleteTemplate(context.Background(), id)
 }
 
+func (a *App) SetDefaultTemplate(projectID string, templateID string) error {
+	return a.TemplateService.SetDefaultTemplate(context.Background(), projectID, templateID)
+}
+
 // Recipient Service Wrappers for Wails Service Binding
 
 func (a *App) InspectImportFile(filePath string) (*importer.FileMetadata, error) {
@@ -291,6 +295,10 @@ func (a *App) ListBatchJobItems(jobID string) ([]domain.GenerationJobItem, error
 	return a.JobService.ListJobItems(context.Background(), jobID)
 }
 
+func (a *App) DeleteBatchJob(id string) error {
+	return a.JobService.DeleteJob(context.Background(), id)
+}
+
 // Backup & Restore Service Wrappers for Wails Service Binding
 
 func (a *App) BackupProject(projectID string, outputPath string) (*domain.BackupManifest, error) {
@@ -310,7 +318,7 @@ func (a *App) RestoreProject(opts domain.RestoreOptions) (*domain.RestoreResult,
 func (a *App) OpenFile(filePath string) error {
 	filePath = filepath.Clean(filePath)
 	if _, err := os.Stat(filePath); err != nil {
-		return fmt.Errorf("file not found: %w", err)
+		return fmt.Errorf("berkas tidak ditemukan di '%s': file mungkin telah dipindahkan atau dihapus", filePath)
 	}
 
 	var cmd *exec.Cmd
@@ -329,7 +337,7 @@ func (a *App) OpenDirectory(dirPath string) error {
 	dirPath = filepath.Clean(dirPath)
 	fi, err := os.Stat(dirPath)
 	if err != nil {
-		return fmt.Errorf("path not found: %w", err)
+		return fmt.Errorf("folder tidak ditemukan di '%s': folder mungkin telah dipindahkan atau dihapus", dirPath)
 	}
 	if !fi.IsDir() {
 		dirPath = filepath.Dir(dirPath)

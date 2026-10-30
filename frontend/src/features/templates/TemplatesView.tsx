@@ -4,12 +4,13 @@ import {
   Plus,
   Edit3,
   Trash2,
-  Copy,
   Calendar,
   Layers,
   Sparkles,
   ArrowLeft,
   X,
+  Star,
+  AlertTriangle,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useDesignerStore, createBlankDocument, createDefaultJanaizDocument } from '../editor/designerStore';
@@ -31,6 +32,10 @@ export const TemplatesView: React.FC = () => {
   const [newPreset, setNewPreset] = useState<PaperPreset | 'default_janaiz'>('default_janaiz');
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Delete modal
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+  const [isDeletingLoading, setIsDeletingLoading] = useState(false);
 
   const handleCreateDefaultTemplate = async () => {
     if (!activeProject) return;
@@ -165,30 +170,30 @@ export const TemplatesView: React.FC = () => {
     }
   };
 
-  const handleDeleteTemplate = async (id: string) => {
-    if (!window.confirm('Hapus template ini secara permanen?')) return;
+  const handleSetDefault = async (templateId: string) => {
+    if (!activeProject) return;
     try {
-      await client.deleteTemplate(id);
+      await client.setDefaultTemplate(activeProject.id, templateId);
       await loadTemplates();
-      if (activeEditingId === id) {
-        setActiveEditingId(null);
-      }
     } catch (err) {
-      console.error('Failed to delete template:', err);
+      console.error('Failed to set default template:', err);
     }
   };
 
-  const handleDuplicateTemplate = async (tmpl: Template) => {
-    if (!activeProject) return;
+  const handleConfirmDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    setIsDeletingLoading(true);
     try {
-      await client.createTemplate({
-        projectId: activeProject.id,
-        name: `${tmpl.name} (Salinan)`,
-        documentJson: tmpl.documentJson,
-      } as any);
+      await client.deleteTemplate(templateToDelete.id);
+      if (activeEditingId === templateToDelete.id) {
+        setActiveEditingId(null);
+      }
+      setTemplateToDelete(null);
       await loadTemplates();
     } catch (err) {
-      console.error('Failed to duplicate template:', err);
+      console.error('Failed to delete template:', err);
+    } finally {
+      setIsDeletingLoading(false);
     }
   };
 
@@ -276,7 +281,7 @@ export const TemplatesView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {templates.map((tmpl, idx) => {
+          {templates.map((tmpl) => {
             let docSummary = { orientation: 'landscape', elementCount: 0, widthMm: 297, heightMm: 210 };
             try {
               const parsed = JSON.parse(tmpl.documentJson);
@@ -306,7 +311,7 @@ export const TemplatesView: React.FC = () => {
                           <h3 className="font-bold text-slate-800 text-base leading-tight">
                             {tmpl.name}
                           </h3>
-                          {idx === 0 && (
+                          {tmpl.isDefault && (
                             <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
                               Default
                             </span>
@@ -332,18 +337,21 @@ export const TemplatesView: React.FC = () => {
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    {!tmpl.isDefault && (
+                      <button
+                        onClick={() => handleSetDefault(tmpl.id)}
+                        title="Jadikan Sebagai Template Default"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition cursor-pointer"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                        Jadikan Default
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleDuplicateTemplate(tmpl)}
-                      title="Duplikasi Template"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTemplate(tmpl.id)}
+                      onClick={() => setTemplateToDelete(tmpl)}
                       title="Hapus Template"
-                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -434,6 +442,47 @@ export const TemplatesView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Template Confirmation Modal */}
+      {templateToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg mb-1">Hapus Template?</h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Apakah Anda yakin ingin menghapus template{' '}
+                <span className="font-semibold text-slate-800">"{templateToDelete.name}"</span>?
+                {templateToDelete.isDefault && (
+                  <span className="block mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    Perhatian: Ini adalah template default saat ini. Template lain yang tersisa akan otomatis dijadikan default.
+                  </span>
+                )}
+              </p>
+              <div className="flex justify-end gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setTemplateToDelete(null)}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteTemplate}
+                  disabled={isDeletingLoading}
+                  className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeletingLoading ? 'Menghapus...' : 'Ya, Hapus Template'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

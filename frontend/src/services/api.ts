@@ -44,6 +44,7 @@ export interface IApiClient {
   listTemplates(projectId: string): Promise<Template[]>;
   updateTemplate(id: string, name: string, docJson: string): Promise<Template | null>;
   deleteTemplate(id: string): Promise<void>;
+  setDefaultTemplate(projectId: string, templateId: string): Promise<void>;
   renderPreviewPdf(docJson: string, variables: Record<string, string>): Promise<string>;
 
   // Recipient methods
@@ -73,6 +74,7 @@ export interface IApiClient {
   getBatchJob(id: string): Promise<GenerationJob | null>;
   listBatchJobs(projectId: string): Promise<GenerationJob[]>;
   listBatchJobItems(jobId: string): Promise<GenerationJobItem[]>;
+  deleteBatchJob(id: string): Promise<void>;
 
   // Backup & Restore methods
   backupProject(projectId: string, outputPath: string): Promise<BackupManifest | null>;
@@ -245,6 +247,14 @@ export class MockApiClient implements IApiClient {
 
   async deleteTemplate(id: string): Promise<void> {
     this.templates = this.templates.filter((t) => t.id !== id);
+  }
+
+  async setDefaultTemplate(projectId: string, templateId: string): Promise<void> {
+    for (const t of this.templates) {
+      if (t.projectId === projectId) {
+        (t as any).isDefault = t.id === templateId;
+      }
+    }
   }
 
   async renderPreviewPdf(_docJson: string, _variables: Record<string, string>): Promise<string> {
@@ -424,6 +434,10 @@ export class MockApiClient implements IApiClient {
     return this.jobItems.filter((i) => i.jobId === jobId);
   }
 
+  async deleteBatchJob(id: string): Promise<void> {
+    this.jobs = this.jobs.filter((j) => j.id !== id);
+  }
+
   // Backup & Restore methods
   async backupProject(projectId: string, _outputPath: string): Promise<BackupManifest | null> {
     return {
@@ -544,6 +558,10 @@ export class WailsApiClient implements IApiClient {
     return AppBindings.DeleteTemplate(id);
   }
 
+  setDefaultTemplate(projectId: string, templateId: string): Promise<void> {
+    return AppBindings.SetDefaultTemplate(projectId, templateId);
+  }
+
   renderPreviewPdf(docJson: string, variables: Record<string, string>): Promise<string> {
     return AppBindings.RenderPreviewPDF(docJson, variables);
   }
@@ -624,6 +642,10 @@ export class WailsApiClient implements IApiClient {
 
   listBatchJobItems(jobId: string): Promise<GenerationJobItem[]> {
     return AppBindings.ListBatchJobItems(jobId);
+  }
+
+  deleteBatchJob(id: string): Promise<void> {
+    return AppBindings.DeleteBatchJob(id);
   }
 
   backupProject(projectId: string, outputPath: string): Promise<BackupManifest | null> {

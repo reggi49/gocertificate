@@ -81,7 +81,7 @@ describe('RecipientsView & Import Workflow', () => {
       expect(screen.getByText('Budi Wicaksono, M.Sc.')).toBeDefined();
     });
 
-    const printBtn = screen.getByRole('button', { name: /^cetak sertifikat$/i });
+    const printBtn = screen.getByTitle('Cetak Sertifikat Peserta Ini');
     fireEvent.click(printBtn);
 
     expect(screen.getByText('Generate Batch Sertifikat')).toBeDefined();
@@ -100,5 +100,25 @@ describe('RecipientsView & Import Workflow', () => {
     fireEvent.click(okBtn);
 
     expect(navigated).toBe(true);
+  });
+
+  it('deletes a recipient via confirmation modal', async () => {
+    render(<RecipientsView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Budi Wicaksono, M.Sc.')).toBeDefined();
+    });
+
+    const deleteBtn = screen.getByTitle('Hapus');
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByText('Hapus Data Penerima?')).toBeDefined();
+
+    const confirmBtn = screen.getByRole('button', { name: /ya, hapus/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Budi Wicaksono, M.Sc.')).toBeNull();
+    });
   });
 });

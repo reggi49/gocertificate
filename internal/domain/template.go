@@ -21,6 +21,7 @@ type Template struct {
 	Name          string    `json:"name"`
 	DocumentJSON  string    `json:"documentJson"`
 	SchemaVersion int       `json:"schemaVersion"`
+	IsDefault     bool      `json:"isDefault"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }

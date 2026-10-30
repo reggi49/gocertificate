@@ -14,7 +14,7 @@ describe('AppShell Component', () => {
 
     // Brand and main tabs
     expect(screen.getByText('Certificate')).toBeDefined();
-    expect(screen.getByText('Generator Desktop')).toBeDefined();
+    expect(screen.getByText('Generator Janaiz')).toBeDefined();
     expect(screen.getByText('Ringkasan Aplikasi')).toBeDefined();
 
     // Navigate to Projects/Acara view

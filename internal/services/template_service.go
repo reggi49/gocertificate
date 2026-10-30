@@ -198,6 +198,17 @@ func (s *TemplateService) DeleteTemplate(ctx context.Context, id string) error {
 	return nil
 }
 
+// SetDefaultTemplate designates a template as the default for a project.
+func (s *TemplateService) SetDefaultTemplate(ctx context.Context, projectID string, templateID string) error {
+	if err := filesystem.ValidateID(projectID); err != nil {
+		return domain.ErrInvalidProjectID
+	}
+	if err := filesystem.ValidateID(templateID); err != nil {
+		return domain.ErrInvalidTemplateID
+	}
+	return s.templateRepo.SetDefault(ctx, projectID, templateID)
+}
+
 func (s *TemplateService) syncTemplateToDisk(tmpl *domain.Template) error {
 	projDir, err := s.sm.ProjectDir(tmpl.ProjectID)
 	if err != nil {

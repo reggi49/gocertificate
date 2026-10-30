@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
           <h1 className="text-sm font-bold text-white tracking-wide leading-tight">
             Certificate
           </h1>
-          <p className="text-xs text-slate-400">Generator Desktop</p>
+          <p className="text-xs text-slate-400">Generator Janaiz</p>
         </div>
       </div>
 
