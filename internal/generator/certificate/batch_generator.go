@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -237,10 +238,14 @@ func (g *BatchGenerator) ExecuteBatch(
 
 	assetRootDir := filepath.Join(projDir, "assets")
 
-	// 7. Bounded Worker Pool Processing
+	// 7. Bounded Worker Pool Processing (Smart Auto Concurrency: 75% of machine CPU cores)
 	concurrency := cfg.Concurrency
 	if concurrency <= 0 {
-		concurrency = 1
+		cpus := runtime.NumCPU()
+		concurrency = int(float64(cpus) * 0.75)
+		if concurrency < 1 {
+			concurrency = 1
+		}
 	}
 
 	type workTask struct {

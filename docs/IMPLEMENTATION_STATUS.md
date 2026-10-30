@@ -4,7 +4,11 @@
 The repository is set up with Go backend and React + TypeScript + Vite frontend.
 - Backend module: `certificate-generator`
 - Git initialized: Yes
-- Standalone desktop binary: `build/bin/certificate-generator` (22 MB)
+- Release Artifacts:
+  - `build/bin/CertificateGenerator.dmg` (macOS Universal Installer: Apple Silicon + Intel, 32 MB)
+  - `build/bin/certificate-generator.exe` (Windows 64-bit Standalone Executable, 28 MB)
+  - `build/bin/certificate-generator-darwin-universal` (Mach-O Universal 64-bit)
+  - `build/bin/checksums.txt` (SHA-256 Checksums)
 
 ## Detected Technology Versions
 - Operating System: macOS Darwin arm64 (Apple Silicon)
@@ -120,23 +124,20 @@ The repository is set up with Go backend and React + TypeScript + Vite frontend.
 - **Phase 3 — Recipient Management**: Completed (**PASS**). Recipient CRUD, pagination, search, bulk selection, CSV & XLSX import with worksheet selection, column mapping, date/email validation, duplicate detection, transactional batch storage, and 1,000-row fixture import.
 - **Phase 4 — Certificate Rendering**: Completed (**PASS**). Production GoPDF vector renderer, font resolver, Unicode Indonesian support, text measurement, horizontal/vertical alignment, shrink-to-fit, word wrapping, vector shapes, QR code embedding, safe atomic writes, filename sanitization, structural PDF validation, and 6 visual PDF fixture artifacts.
 - **Phase 5 — Batch Generation**: Completed (**PASS**). Bounded worker pool (concurrency 1-4), context cancellation, streaming ZIP creation, `export-summary.csv`, temporary directory cleanup, retry failed items, interrupted job recovery, and benchmark 1.000 certificates (~5.9 ms/cert).
-- **Phase 6 — Printing, Backup, Restore, and Polish**: Completed (**PASS**). Dedicated PrintView with print CSS rules, portable ZIP backup generation with SHA-256 manifests, secure restore with **ZIP Slip protection**, conflict resolution (`create_new`, `overwrite`, `abort`), unsaved changes guard, keyboard shortcuts modal, and UI polish.
+- **Phase 6 — Printing, Backup, Restore, and Polish**: Completed (**PASS**). Dedicated PrintView with print CSS rules, portable ZIP backup generation with SHA-256 manifests, secure restore with **ZIP Slip protection**, conflict resolution (`create_new`, `overwrite`, `abort`), unsaved changes guard, keyboard shortcuts modal, interrupted generation recovery, and UI polish.
+- **Phase 7 — Cross-Platform QA and Release**: Completed (**PASS** for macOS Universal & Windows x64; **BLOCKED** for Linux native CGO build & private signing keys).
 
-## Missing Features / Roadmap
-- **Phase 7 — Cross-Platform QA and Release**: Packaging, signing guides, and release notes.
-
-## Technical Risks & Mitigations
-- *Risk*: Malicious backup archive trying to overwrite host system binaries via path traversal (`../../`).
-  *Mitigation*: `safeExtractZip` strictly validates canonical destination paths and rejects any entry with `..`, drive letters, or absolute paths before writing.
-- *Risk*: Data loss during restore failure.
-  *Mitigation*: Database writes are performed inside an atomic transaction (`tx.BeginTx()`) and temporary files are isolated in `os.TempDir()` with guaranteed cleanup.
+## Platform Release Matrix
+- **macOS Apple Silicon (ARM64)**: **PASS** (`build/bin/certificate-generator-darwin-arm64`)
+- **macOS Intel (x86_64)**: **PASS** (`build/bin/certificate-generator-darwin-amd64`)
+- **macOS Universal Installer (.dmg)**: **PASS** (`build/bin/CertificateGenerator.dmg`, 32 MB)
+- **Windows 64-bit (.exe)**: **PASS** (`build/bin/certificate-generator.exe`, 28 MB)
+- **Linux Desktop (AMD64 & ARM64)**: **BLOCKED** (Requires Linux host with `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` CGO headers)
+- **Code Signing**: **BLOCKED** (Commercial Apple Developer / Authenticode keys not stored in repo; official signing procedure documented in `docs/RELEASE.md`)
 
 ## Current Test Status
-- Backend Go tests (`go test -count=1 -v -race ./...`): **44 passed, 0 failed, 0 race warnings**.
+- Backend Go tests (`go test -count=1 -v -race ./...`): **45 passed, 0 failed, 0 race warnings**.
 - Go static checks (`go vet ./...`): **PASS**.
 - Frontend unit tests (`npx vitest run`): **27 passed, 0 failed**.
 - Frontend production build (`npm run build`): **PASS** (minified bundle 775.9 kB).
-- Go desktop binary build (`go build`): **PASS** (`build/bin/certificate-generator` 22 MB).
-
-## Recommended Next Phase
-**Phase 7 — Cross-Platform QA and Release**
+- Release binary and installer generation: **PASS**.

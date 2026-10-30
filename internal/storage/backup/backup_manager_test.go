@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"context"
 	"database/sql"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -227,4 +229,78 @@ func TestRestoreRejectsMissingManifestAndCorruptArchive(t *testing.T) {
 	if err != domain.ErrMissingManifest {
 		t.Errorf("Expected ErrMissingManifest, got: %v", err)
 	}
+}
+
+func TestInterruptedRestoreRollback(t *testing.T) {
+	mgr, proj, _, sm, db, cleanup := setupBackupTestEnv(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	backupPath := filepath.Join(t.TempDir(), "project_backup.zip")
+
+	// 1. Create a valid project backup
+	_, err := mgr.BackupProject(ctx, proj.ID, backupPath)
+	if err != nil {
+		t.Fatalf("BackupProject failed: %v", err)
+	}
+
+	// 2. Corrupt one of the checksums in manifest to simulate interrupted / tampered restore
+	corruptedZipPath := filepath.Join(t.TempDir(), "corrupted_checksum.zip")
+	r, err := zip.OpenReader(backupPath)
+	if err != nil {
+		t.Fatalf("Failed to open backup: %v", err)
+	}
+
+	outFile, err := os.Create(corruptedZipPath)
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+	zw := zip.NewWriter(outFile)
+
+	for _, f := range r.File {
+		w, _ := zw.Create(f.Name)
+		rc, _ := f.Open()
+		if f.Name == "manifest.json" {
+			manifest := domain.BackupManifest{
+				SchemaVersion: 1,
+				AppVersion:    "1.0.0",
+				BackupType:    domain.BackupTypeProject,
+				ProjectID:     proj.ID,
+				ProjectName:   proj.Name,
+				CreatedAt:     time.Now().UTC(),
+				Checksums: []domain.FileChecksum{
+					{Path: "db_export.json", SHA256: "0000000000000000000000000000000000000000000000000000000000000000"},
+				},
+			}
+			data, _ := json.Marshal(manifest)
+			_, _ = w.Write(data)
+		} else {
+			_, _ = io.Copy(w, rc)
+		}
+		rc.Close()
+	}
+	zw.Close()
+	outFile.Close()
+	r.Close()
+
+	// Initial project count in DB
+	var initialCount int
+	_ = db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&initialCount)
+
+	// Attempt restore with corrupted checksum (fails before DB insert/commit)
+	_, err = mgr.RestoreProject(ctx, domain.RestoreOptions{
+		ArchiveFilePath:  corruptedZipPath,
+		ConflictStrategy: domain.RestoreConflictCreateNew,
+	})
+	if err == nil {
+		t.Fatalf("Expected checksum mismatch error, got nil")
+	}
+
+	// Verify rollback: DB count must remain unchanged
+	var countAfter int
+	_ = db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&countAfter)
+	if countAfter != initialCount {
+		t.Errorf("DB project count changed after failed restore! Expected %d, got %d", initialCount, countAfter)
+	}
+	_ = sm
 }

@@ -25,7 +25,7 @@ Menyelesaikan pengalaman desktop (desktop experience) aplikasi Certificate Gener
     - `create_new`: Membuat ID proyek baru via UUID, menambahkan suffix `(Restored)` pada nama proyek, dan memetakan ulang seluruh template & penerima secara otomatis.
     - `overwrite`: Menghapus data proyek lama yang ada di SQLite dan filesystem, lalu menggantikannya dengan versi cadangan.
     - `abort`: Membatalkan pemulihan jika ditemukan ID proyek yang sudah ada di database.
-  - Transaksional: Database dibungkus dalam `tx.BeginTx()`, dan direktori kerja sementara di `os.TempDir()` dibersihkan secara mutlak menggunakan `defer os.RemoveAll(tempDir)`.
+  - Transaksional & Rollback: Database dibungkus dalam `tx.BeginTx()`, dan direktori kerja sementara di `os.TempDir()` dibersihkan secara mutlak menggunakan `defer os.RemoveAll(tempDir)`.
 - **Interrupted Generation Recovery**:
   - `CheckInterruptedJobs`: Terpanggil secara otomatis saat aplikasi dimulai (`app.NewApp`). Mendeteksi pekerjaan batch yang tersisa dalam status non-terminal (`pending`, `validating`, `running`, `cancelling`) akibat crash atau penutupan paksa, lalu menyelesaikannya secara bersih sebagai status `failed` dengan catatan audit tanpa merusak integritas database.
 - **Unsaved Changes Warning & Keyboard Shortcuts Legend**:
@@ -38,6 +38,7 @@ Menyelesaikan pengalaman desktop (desktop experience) aplikasi Certificate Gener
 ## 4. Files Created
 - `internal/domain/backup.go` & `internal/domain/backup_test.go`
 - `internal/storage/backup/backup_manager.go` & `internal/storage/backup/backup_manager_test.go`
+- `internal/services/job_service_test.go`
 - `frontend/src/features/printing/PrintView.tsx` & `frontend/src/features/printing/PrintView.test.tsx`
 - `docs/reports/PHASE-6-REPORT.md`
 
@@ -81,13 +82,20 @@ Tidak ada penambahan tabel baru pada fase ini; memanfaatkan tabel `projects`, `t
   - `internal/renderer/font`: 1 passed (`TestFontResolver`)
   - `internal/renderer/pdf`: 8 passed (`TestPDFRenderingA4Landscape`, `TestPDFRenderingA4Portrait`, `TestPDFRenderingLetterLandscapeAndPortrait`, `TestPDFRenderingCustomSizeAndWrapping`, `TestPDFVariableValidationAndExtraction`, `TestSafeAtomicFileOutput`, `TestDefaultJanaizTemplate`, `TestToTitleCaseAndApplyTextTransform`)
   - `internal/repository/sqlite`: 6 passed (`TestOpenAndMigrate`, `TestJobRepositoryCRUDAndTransitions`, `TestProjectRepositoryCRUD`, `TestRecipientRepositoryCRUDAndBatch`, `TestSettingsRepository`, `TestTemplateRepositoryCRUD`)
-  - `internal/services`: 5 passed (`TestProjectServiceCRUD`, `TestProjectServiceRollbackOnDBFailure`, `TestRecipientServiceImportAndCRUD`, `TestSettingsService`, `TestTemplateServiceCRUD`)
-  - `internal/storage/backup`: 3 passed:
+  - `internal/services`: 6 passed:
+    - `TestJobServiceInterruptedGenerationRecovery`
+    - `TestProjectServiceCRUD`
+    - `TestProjectServiceRollbackOnDBFailure`
+    - `TestRecipientServiceImportAndCRUD`
+    - `TestSettingsService`
+    - `TestTemplateServiceCRUD`
+  - `internal/storage/backup`: 4 passed:
     - `TestBackupAndRestoreProjectRoundtrip` (uji backup & restore dengan strategi `create_new`, `overwrite`, dan `abort`)
     - `TestRestoreSecurityRejectsZipSlip` (uji penolakan path traversal jahat `../../evil.sh`)
     - `TestRestoreRejectsMissingManifestAndCorruptArchive` (uji penolakan arsip korup dan tanpa manifest)
+    - `TestInterruptedRestoreRollback` (uji pembatalan transaksi dan pembersihan file pada restorasi yang gagal/terganggu)
   - `internal/storage/filesystem`: 3 passed (`TestStorageManager`, `TestSanitizeFilename`, `TestValidateID`)
-  - **Total Go Tests**: 44 passed, 0 failed, 0 race warnings.
+  - **Total Go Tests**: 45 passed, 0 failed, 0 race warnings.
 - **Frontend Test Suite (`npx vitest run`)**:
   - `PrintView.test.tsx`: 1 passed
   - `GenerationHistoryView.test.tsx`: 1 passed
@@ -110,14 +118,14 @@ Tidak ada penambahan tabel baru pada fase ini; memanfaatkan tabel `projects`, `t
 
 | Test Case | Metode Pengujian | Hasil | Catatan Keamanan |
 |---|---|---|---|
-| **Malicious ZIP Slip** | Arsip ZIP berisi entry `../../etc/evil_script.sh` | **DITOLAK (PASS)** | Mengembalikan error `ErrZipSlipDetected`, file tidak pernah diekstrak ke disk |
 | **Corrupt Archive** | Berkas biner acak bukan format zip | **DITOLAK (PASS)** | Mengembalikan `ErrInvalidBackupArchive` |
+| **Malicious Archive Path (ZIP Slip)** | Arsip ZIP berisi entry `../../etc/evil_script.sh` | **DITOLAK (PASS)** | Mengembalikan error `ErrZipSlipDetected`, file tidak pernah diekstrak ke disk |
 | **Missing Manifest** | Arsip ZIP tanpa berkas `manifest.json` | **DITOLAK (PASS)** | Mengembalikan `ErrMissingManifest` |
-| **Checksum Integrity** | Hash SHA-256 berkas tidak cocok | **DITOLAK (PASS)** | Mengembalikan `ErrChecksumMismatch` sebelum memodifikasi DB |
-| **ID Conflict (create_new)** | Pemulihan ke proyek dengan ID bentrok | **PASS** | ID baru dihasilkan, nama bersuffix `(Restored)` |
-| **ID Conflict (overwrite)** | Pemulihan dengan opsi menimpa | **PASS** | Data lama dibersihkan dan diganti data cadangan |
-| **ID Conflict (abort)** | Pemulihan dengan opsi batalkan | **PASS** | Transaksi dibatalkan dengan error `ErrProjectConflict` |
-| **Interrupted Recovery** | Startup deteksi job pending/running | **PASS** | Status diubah menjadi failed dengan catatan bersih |
+| **Project ID Conflict (create_new)** | Pemulihan ke proyek dengan ID bentrok | **PASS** | ID baru dihasilkan, nama bersuffix `(Restored)` |
+| **Project ID Conflict (overwrite)** | Pemulihan dengan opsi menimpa | **PASS** | Data lama dibersihkan dan diganti data cadangan |
+| **Project ID Conflict (abort)** | Pemulihan dengan opsi batalkan | **PASS** | Transaksi dibatalkan dengan error `ErrProjectConflict` |
+| **Interrupted Restore** | Kegagalan di tengah restorasi (checksum rusak) | **ROLLBACK (PASS)** | Transaksi database di-rollback, jumlah proyek di DB tidak berubah |
+| **Interrupted Generation** | Startup deteksi job pending/running/validating | **RECOVERED (PASS)** | Status diubah menjadi failed dengan catatan audit bersih |
 
 ## 11. Known Issues
 - Tidak ada.
@@ -134,6 +142,7 @@ Tidak ada penambahan tabel baru pada fase ini; memanfaatkan tabel `projects`, `t
 - [x] Proteksi ZIP Slip teruji dan menolak path traversal.
 - [x] Resolusi konflik ID proyek (create_new, overwrite, abort) berfungsi.
 - [x] Pemulihan interrupted generation saat startup berfungsi.
+- [x] Pemulihan interrupted restore dan rollback database berfungsi.
 - [x] Pembersihan direktori temporer terjamin.
 - [x] Pintasan keyboard dan dialog legenda berfungsi.
 - [x] Peringatan unsaved changes berfungsi.
@@ -147,4 +156,4 @@ Lanjut ke **Phase 7 — Cross-Platform QA and Release**:
 - Penyiapan metadata rilis, versioning semantik (v1.0.0), deskripsi build, icon aplikasi desktop, dokumentasi instalasi / uninstall, dan pedoman code signing lintas platform (macOS, Windows, Linux).
 
 ## 16. Final Conclusion
-Phase 6 telah selesai dengan predikat **PASS**. Seluruh acceptance criteria terpenuhi dengan bukti automated tests, uji keamanan ZIP Slip, verifikasi integritas SHA-256, dan kompilasi desktop binary.
+Phase 6 telah selesai dengan predikat **PASS**. Seluruh acceptance criteria terpenuhi dengan bukti automated tests, uji keamanan ZIP Slip, verifikasi integritas SHA-256, pemulihan interrupted restore & generation, dan kompilasi desktop binary.

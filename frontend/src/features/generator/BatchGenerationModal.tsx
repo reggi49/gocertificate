@@ -31,6 +31,7 @@ export interface ProgressEventPayload {
 interface BatchGenerationModalProps {
   isOpen: boolean;
   projectId: string;
+  recipientIds?: string[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -38,6 +39,7 @@ interface BatchGenerationModalProps {
 export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   isOpen,
   projectId,
+  recipientIds,
   onClose,
   onSuccess,
 }) => {
@@ -46,8 +48,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [recipientCount, setRecipientCount] = useState(0);
-  const [concurrency, setConcurrency] = useState(1);
-  const [exportZip, setExportZip] = useState(true);
+  const [exportZip, setExportZip] = useState(false);
 
   // Execution states
   const [isRunning, setIsRunning] = useState(false);
@@ -66,16 +67,20 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
           }
         }
       });
-      client.countRecipients(projectId).then((cnt) => {
-        if (!ignore) {
-          setRecipientCount(cnt);
-        }
-      });
+      if (recipientIds && recipientIds.length > 0) {
+        setRecipientCount(recipientIds.length);
+      } else {
+        client.countRecipients(projectId).then((cnt) => {
+          if (!ignore) {
+            setRecipientCount(cnt);
+          }
+        });
+      }
     }
     return () => {
       ignore = true;
     };
-  }, [isOpen, projectId, client]);
+  }, [isOpen, projectId, recipientIds, client]);
 
   if (!isOpen) return null;
 
@@ -106,7 +111,8 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
       const cfg: BatchConfig = {
         projectId,
         templateId: selectedTemplateId,
-        concurrency,
+        recipientIds: recipientIds && recipientIds.length > 0 ? recipientIds : [],
+        concurrency: 0,
         exportZip,
         exportIndividualPdf: !exportZip,
       } as any;
@@ -206,33 +212,12 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                 <span className="text-slate-600">Total Penerima Siap Render:</span>
                 <span className="font-bold text-slate-800 text-sm">
                   {recipientCount.toLocaleString('id-ID')} Orang
+                  {recipientIds && recipientIds.length > 0 && (
+                    <span className="ml-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                      Terpilih
+                    </span>
+                  )}
                 </span>
-              </div>
-
-              {/* Concurrency worker limit */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Batas Concurrency Worker (RAM Ramah)
-                  </label>
-                  <span className="text-xs font-bold text-blue-600 font-mono">
-                    {concurrency} Worker (Rekomendasi: 1 untuk RAM 4 GB)
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={4}
-                  value={concurrency}
-                  onChange={(e) => setConcurrency(Number(e.target.value))}
-                  className="w-full accent-blue-600 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                  <span>1 (Paling Ringan)</span>
-                  <span>2</span>
-                  <span>3</span>
-                  <span>4 (Maksimal)</span>
-                </div>
               </div>
 
               {/* Output format option */}
@@ -245,11 +230,11 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                     <input
                       type="radio"
                       name="exportType"
-                      checked={exportZip}
-                      onChange={() => setExportZip(true)}
+                      checked={!exportZip}
+                      onChange={() => setExportZip(false)}
                       className="text-blue-600 focus:ring-blue-500"
                     />
-                    Paket Arsip ZIP (.zip) + export-summary.csv (Rekomendasi)
+                    Berkas PDF Individual Langsung ke Folder Proyek (Default)
                   </label>
                 </div>
                 <div className="flex items-center gap-3">
@@ -257,11 +242,11 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                     <input
                       type="radio"
                       name="exportType"
-                      checked={!exportZip}
-                      onChange={() => setExportZip(false)}
+                      checked={exportZip}
+                      onChange={() => setExportZip(true)}
                       className="text-blue-600 focus:ring-blue-500"
                     />
-                    Berkas PDF Individual Langsung ke Folder Proyek
+                    Paket Arsip ZIP (.zip) + export-summary.csv
                   </label>
                 </div>
               </div>

@@ -10,9 +10,11 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  Printer,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ImportWizardModal } from './ImportWizardModal';
+import { BatchGenerationModal } from '../generator/BatchGenerationModal';
 import { toTitleCase } from '../../lib/units';
 import type { Recipient } from '../../../bindings/certificate-generator/internal/domain/models';
 
@@ -33,6 +35,8 @@ export const RecipientsView: React.FC = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchRecipientIds, setBatchRecipientIds] = useState<string[] | undefined>(undefined);
 
   const loadRecipients = useCallback(async () => {
     if (!activeProject) return;
@@ -137,6 +141,11 @@ export const RecipientsView: React.FC = () => {
     }
   };
 
+  const handleOpenPrintOrBatch = (ids?: string[]) => {
+    setBatchRecipientIds(ids);
+    setIsBatchModalOpen(true);
+  };
+
   if (!activeProject) {
     return (
       <div className="py-20 text-center text-slate-500 text-sm">
@@ -171,6 +180,16 @@ export const RecipientsView: React.FC = () => {
               Hapus Semua
             </button>
           )}
+
+          <button
+            onClick={() => handleOpenPrintOrBatch(selectedIds.length > 0 ? selectedIds : undefined)}
+            disabled={recipients.length === 0}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+            title="Cetak sertifikat penerima dan catat ke riwayat batch"
+          >
+            <Printer className="w-4 h-4" />
+            {selectedIds.length > 0 ? `Cetak (${selectedIds.length} Terpilih)` : 'Cetak Sertifikat'}
+          </button>
 
           <button
             onClick={() => setIsCreateOpen(true)}
@@ -210,16 +229,26 @@ export const RecipientsView: React.FC = () => {
         {/* Selected Items Action */}
         <div className="flex items-center gap-3">
           {selectedIds.length > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
-              <span className="text-xs font-bold text-red-700">
-                {selectedIds.length} Terpilih
-              </span>
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleDeleteSelected}
-                className="text-xs text-red-700 font-semibold underline hover:text-red-900 ml-2"
+                onClick={() => handleOpenPrintOrBatch(selectedIds)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs cursor-pointer transition"
               >
-                Hapus
+                <Printer className="w-3.5 h-3.5" />
+                Cetak {selectedIds.length} Terpilih
               </button>
+
+              <div className="flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+                <span className="text-xs font-bold text-red-700">
+                  {selectedIds.length} Terpilih
+                </span>
+                <button
+                  onClick={handleDeleteSelected}
+                  className="text-xs text-red-700 font-semibold underline hover:text-red-900 ml-2 cursor-pointer"
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
           )}
 
@@ -323,16 +352,23 @@ export const RecipientsView: React.FC = () => {
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleOpenPrintOrBatch([rec.id])}
+                            title="Cetak Sertifikat Peserta Ini"
+                            className="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => setEditingRecipient(rec)}
                             title="Edit"
-                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDeleteOne(rec.id)}
                             title="Hapus"
-                            className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
+                            className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -393,6 +429,24 @@ export const RecipientsView: React.FC = () => {
             setEditingRecipient(null);
           }}
           onSuccess={loadRecipients}
+        />
+      )}
+
+      {/* Batch / Print Generation Modal */}
+      {isBatchModalOpen && (
+        <BatchGenerationModal
+          isOpen={isBatchModalOpen}
+          projectId={activeProject.id}
+          recipientIds={batchRecipientIds}
+          onClose={() => {
+            setIsBatchModalOpen(false);
+            setBatchRecipientIds(undefined);
+          }}
+          onSuccess={() => {
+            setIsBatchModalOpen(false);
+            setBatchRecipientIds(undefined);
+            setSelectedIds([]);
+          }}
         />
       )}
     </div>
