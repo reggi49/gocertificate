@@ -89,6 +89,7 @@ func NewApp(cfg Config) (*App, error) {
 	renderer := pdf.NewGoPDFRenderer(cfg.FontDir)
 
 	projectSvc := services.NewProjectService(pRepo, sm, logger)
+	projectSvc.SetTemplateRepository(tRepo)
 	settingsSvc := services.NewSettingsService(sRepo)
 	templateSvc := services.NewTemplateService(tRepo, pRepo, sm, logger)
 	recipientSvc := services.NewRecipientService(rRepo, pRepo, logger)

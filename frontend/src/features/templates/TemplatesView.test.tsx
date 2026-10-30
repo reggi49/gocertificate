@@ -31,14 +31,14 @@ describe('TemplatesView & Designer Integration', () => {
     useDesignerStore.getState().resetDocument('A4_Landscape');
   });
 
-  it('renders templates view and creates a template', async () => {
+  it('automatically renders default Janaiz template and creates a new template', async () => {
     render(<TemplatesView />);
 
     expect(screen.getByText('Template Sertifikat')).toBeDefined();
 
-    // Await async loading to finish
+    // Await automatic template seeding and display
     await waitFor(() => {
-      expect(screen.getByText('Belum Ada Template Desain')).toBeDefined();
+      expect(screen.getByText('Template Sertifikat Janaiz')).toBeDefined();
     });
 
     // Click create template button
@@ -59,15 +59,16 @@ describe('TemplatesView & Designer Integration', () => {
     });
   });
 
-  it('creates default template when clicking "Gunakan Template Default"', async () => {
+  it('opens designer for default template directly', async () => {
     render(<TemplatesView />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /gunakan template default/i })).toBeDefined();
+      expect(screen.getByText('Template Sertifikat Janaiz')).toBeDefined();
+      expect(screen.getByRole('button', { name: /buka editor desain/i })).toBeDefined();
     });
 
-    const defaultBtn = screen.getByRole('button', { name: /gunakan template default/i });
-    fireEvent.click(defaultBtn);
+    const editBtn = screen.getByRole('button', { name: /buka editor desain/i });
+    fireEvent.click(editBtn);
 
     await waitFor(() => {
       expect(screen.getByText(/kembali ke daftar template/i)).toBeDefined();

@@ -17,9 +17,10 @@ import (
 
 // ProjectService coordinates business workflows between SQLite repository and StorageManager.
 type ProjectService struct {
-	repo   sqlite.ProjectRepository
-	sm     *filesystem.StorageManager
-	logger *slog.Logger
+	repo     sqlite.ProjectRepository
+	tmplRepo sqlite.TemplateRepository
+	sm       *filesystem.StorageManager
+	logger   *slog.Logger
 }
 
 // NewProjectService constructs a new ProjectService.
@@ -32,6 +33,11 @@ func NewProjectService(repo sqlite.ProjectRepository, sm *filesystem.StorageMana
 		sm:     sm,
 		logger: logger,
 	}
+}
+
+// SetTemplateRepository attaches the template repository to enable automatic default template seeding.
+func (s *ProjectService) SetTemplateRepository(tmplRepo sqlite.TemplateRepository) {
+	s.tmplRepo = tmplRepo
 }
 
 // CreateProject creates a project record and corresponding filesystem structure with rollback on failure.
@@ -88,6 +94,28 @@ func (s *ProjectService) CreateProject(ctx context.Context, input domain.CreateP
 		_ = s.sm.DeleteProjectDirectory(projectID)
 		s.logger.Error("failed to insert project to database, rolled back filesystem", "projectId", projectID, "error", err)
 		return nil, fmt.Errorf("failed to save project to database: %w", err)
+	}
+
+	// 4. Automatically seed default Janaiz template into project
+	if s.tmplRepo != nil {
+		defaultDocJSON := domain.DefaultJanaizDocumentJSON()
+		defaultTmpl := &domain.Template{
+			ID:            uuid.New().String(),
+			ProjectID:     projectID,
+			Name:          "Template Sertifikat Janaiz",
+			DocumentJSON:  defaultDocJSON,
+			SchemaVersion: 1,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if err := s.tmplRepo.Create(ctx, defaultTmpl); err != nil {
+			s.logger.Warn("failed to seed default template", "projectId", projectID, "error", err)
+		} else {
+			// Also sync to disk
+			templatesDir := filepath.Join(s.sm.ProjectsDir(), projectID, "templates")
+			_ = os.MkdirAll(templatesDir, 0755)
+			_ = filesystem.AtomicWriteFile(filepath.Join(templatesDir, defaultTmpl.ID+".json"), []byte(defaultDocJSON), 0644)
+		}
 	}
 
 	s.logger.Info("project created successfully", "projectId", projectID, "name", project.Name)

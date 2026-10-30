@@ -58,7 +58,22 @@ export const TemplatesView: React.FC = () => {
     if (!activeProject) return;
     setLoading(true);
     try {
-      const list = await client.listTemplates(activeProject.id);
+      let list = await client.listTemplates(activeProject.id);
+      if (list.length === 0) {
+        try {
+          const defaultDoc = createDefaultJanaizDocument();
+          const created = await client.createTemplate({
+            projectId: activeProject.id,
+            name: 'Template Sertifikat Janaiz',
+            documentJson: JSON.stringify(defaultDoc),
+          } as any);
+          if (created) {
+            list = [created];
+          }
+        } catch (e) {
+          console.error('Failed to auto-seed template:', e);
+        }
+      }
       setTemplates(list);
     } catch (err) {
       console.error('Failed to load templates:', err);
@@ -73,7 +88,22 @@ export const TemplatesView: React.FC = () => {
       if (!activeProject) return;
       setLoading(true);
       try {
-        const list = await client.listTemplates(activeProject.id);
+        let list = await client.listTemplates(activeProject.id);
+        if (list.length === 0) {
+          try {
+            const defaultDoc = createDefaultJanaizDocument();
+            const created = await client.createTemplate({
+              projectId: activeProject.id,
+              name: 'Template Sertifikat Janaiz',
+              documentJson: JSON.stringify(defaultDoc),
+            } as any);
+            if (created) {
+              list = [created];
+            }
+          } catch (e) {
+            console.error('Failed to auto-seed template:', e);
+          }
+        }
         if (!ignore) {
           setTemplates(list);
         }
@@ -246,7 +276,7 @@ export const TemplatesView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {templates.map((tmpl) => {
+          {templates.map((tmpl, idx) => {
             let docSummary = { orientation: 'landscape', elementCount: 0, widthMm: 297, heightMm: 210 };
             try {
               const parsed = JSON.parse(tmpl.documentJson);
@@ -272,9 +302,16 @@ export const TemplatesView: React.FC = () => {
                         <Award className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-800 text-base leading-tight">
-                          {tmpl.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-800 text-base leading-tight">
+                            {tmpl.name}
+                          </h3>
+                          {idx === 0 && (
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                              Default
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-slate-400 capitalize mt-0.5">
                           {docSummary.widthMm} × {docSummary.heightMm} mm ({docSummary.orientation})
                         </p>

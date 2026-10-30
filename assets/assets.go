@@ -44,3 +44,4 @@ func ReadBackground(name string) ([]byte, error) {
 	}
 	return data, nil
 }
+

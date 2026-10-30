@@ -219,13 +219,13 @@ func TestAppTemplatePersistenceAcrossRestarts(t *testing.T) {
 	}
 	defer app2.Close()
 
-	// List templates for project
+	// List templates for project (seeded default template + custom created template)
 	templates, err := app2.ListTemplates(proj.ID)
 	if err != nil {
 		t.Fatalf("ListTemplates failed: %v", err)
 	}
-	if len(templates) != 1 {
-		t.Fatalf("Expected 1 template, got %d", len(templates))
+	if len(templates) != 2 {
+		t.Fatalf("Expected 2 templates (seeded default + custom), got %d", len(templates))
 	}
 
 	// Verify document elements retained
@@ -248,7 +248,7 @@ func TestAppTemplatePersistenceAcrossRestarts(t *testing.T) {
 		t.Errorf("Element text mismatch: %s", reopenedDoc.Elements[0].Properties.Text)
 	}
 
-	// Delete template
+	// Delete custom template; default template should remain
 	if err := app2.DeleteTemplate(tmpl.ID); err != nil {
 		t.Fatalf("DeleteTemplate failed: %v", err)
 	}
@@ -256,8 +256,8 @@ func TestAppTemplatePersistenceAcrossRestarts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTemplates after delete failed: %v", err)
 	}
-	if len(afterDelete) != 0 {
-		t.Errorf("Expected 0 templates after delete, got %d", len(afterDelete))
+	if len(afterDelete) != 1 {
+		t.Errorf("Expected 1 template (the default template) remaining after delete, got %d", len(afterDelete))
 	}
 }
 

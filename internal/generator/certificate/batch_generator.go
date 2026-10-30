@@ -110,10 +110,35 @@ func (g *BatchGenerator) ExecuteBatch(
 		return nil, err
 	}
 
-	// 1. Fetch template
-	tmpl, err := g.tmplRepo.GetByID(ctx, cfg.TemplateID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch template: %w", err)
+	// 1. Fetch template (use provided ID, or fallback to project's default template)
+	var tmpl *domain.Template
+	if cfg.TemplateID != "" {
+		t, err := g.tmplRepo.GetByID(ctx, cfg.TemplateID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch template: %w", err)
+		}
+		tmpl = t
+	} else {
+		tmpls, err := g.tmplRepo.ListByProject(ctx, cfg.ProjectID)
+		if err == nil && len(tmpls) > 0 {
+			tmpl = &tmpls[0]
+		} else {
+			// Auto create default template for project
+			now := time.Now().UTC()
+			defaultDocJSON := domain.DefaultJanaizDocumentJSON()
+			defaultTmpl := &domain.Template{
+				ID:            uuid.New().String(),
+				ProjectID:     cfg.ProjectID,
+				Name:          "Template Sertifikat Janaiz",
+				DocumentJSON:  defaultDocJSON,
+				SchemaVersion: 1,
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			}
+			_ = g.tmplRepo.Create(ctx, defaultTmpl)
+			tmpl = defaultTmpl
+		}
+		cfg.TemplateID = tmpl.ID
 	}
 
 	doc, err := domain.DocumentFromJSON(tmpl.DocumentJSON)

@@ -9,8 +9,10 @@ import {
   FileArchive,
   RefreshCw,
   Folder,
+  Sparkles,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
+import { createDefaultJanaizDocument } from '../editor/designerStore';
 import type {
   Template,
   BatchConfig,
@@ -68,11 +70,28 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
         }
       });
 
-      client.listTemplates(projectId).then((list) => {
-        if (!ignore) {
-          setTemplates(list);
-          if (list.length > 0) {
-            setSelectedTemplateId(list[0].id);
+      client.listTemplates(projectId).then(async (list) => {
+        if (ignore) return;
+        let currentList = list;
+        if (!currentList || currentList.length === 0) {
+          try {
+            const defaultDoc = createDefaultJanaizDocument();
+            const created = await client.createTemplate({
+              projectId,
+              name: 'Template Sertifikat Janaiz',
+              documentJson: JSON.stringify(defaultDoc),
+            } as any);
+            if (created) {
+              currentList = [created];
+            }
+          } catch (e) {
+            console.error('Failed to auto-seed template:', e);
+          }
+        }
+        if (!ignore && currentList) {
+          setTemplates(currentList);
+          if (currentList.length > 0) {
+            setSelectedTemplateId(currentList[0].id);
           }
         }
       });
@@ -105,12 +124,25 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   };
 
   const handleStartGeneration = async () => {
-    if (!selectedTemplateId) {
-      setError('Pilih template sertifikat terlebih dahulu');
-      return;
+    let templateIdToUse = selectedTemplateId || (templates[0]?.id || '');
+    if (!templateIdToUse && templates.length === 0) {
+      try {
+        const defaultDoc = createDefaultJanaizDocument();
+        const created = await client.createTemplate({
+          projectId,
+          name: 'Template Sertifikat Janaiz',
+          documentJson: JSON.stringify(defaultDoc),
+        } as any);
+        if (created) {
+          templateIdToUse = created.id;
+        }
+      } catch (e) {
+        console.error('Failed to auto-create default template:', e);
+      }
     }
+
     if (recipientCount === 0) {
-      setError('Proyek belum memiliki data penerima. Import atau tambahkan penerima dahulu.');
+      setError('Acara belum memiliki data penerima. Import atau tambahkan penerima dahulu.');
       return;
     }
 
@@ -130,7 +162,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
     try {
       const cfg: BatchConfig = {
         projectId,
-        templateId: selectedTemplateId,
+        templateId: templateIdToUse,
         recipientIds: recipientIds && recipientIds.length > 0 ? recipientIds : [],
         concurrency: 0,
         outputDir: outputDir ? outputDir.trim() : '',
@@ -207,21 +239,27 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
               {/* Template Selection */}
               <div>
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1.5">
-                  Template Sertifikat *
+                  Template Sertifikat
                 </label>
-                {templates.length === 0 ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    Belum ada template pada proyek ini. Buat template desain terlebih dahulu di tab Templates.
-                  </p>
+                {templates.length <= 1 ? (
+                  <div className="flex items-center justify-between p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs">
+                    <div className="flex items-center gap-2 text-slate-800 font-medium">
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>{templates[0]?.name || 'Template Sertifikat Janaiz'}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200">
+                      Default
+                    </span>
+                  </div>
                 ) : (
                   <select
-                    value={selectedTemplateId}
+                    value={selectedTemplateId || templates[0]?.id}
                     onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    {templates.map((t) => (
+                    {templates.map((t, idx) => (
                       <option key={t.id} value={t.id}>
-                        {t.name}
+                        {t.name} {idx === 0 ? '(Default)' : ''}
                       </option>
                     ))}
                   </select>
@@ -427,7 +465,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
               <button
                 type="button"
                 onClick={handleStartGeneration}
-                disabled={templates.length === 0 || recipientCount === 0}
+                disabled={recipientCount === 0}
                 className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5" />

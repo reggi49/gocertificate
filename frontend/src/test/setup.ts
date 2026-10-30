@@ -28,6 +28,8 @@ if (typeof HTMLCanvasElement !== 'undefined') {
       transform: () => {},
       rect: () => {},
       clip: () => {},
+      setLineDash: () => {},
+      getLineDash: () => [],
       imageSmoothingEnabled: true,
     } as any;
   };

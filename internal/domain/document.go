@@ -139,3 +139,93 @@ func DocumentFromJSON(jsonStr string) (*Document, error) {
 	}
 	return &doc, nil
 }
+
+// DefaultJanaizDocument returns the canonical template document for Janaiz certificates.
+func DefaultJanaizDocument() *Document {
+	return &Document{
+		SchemaVersion: 1,
+		Page: PageSettings{
+			WidthMm:         210,
+			HeightMm:        297,
+			Orientation:     "portrait",
+			BackgroundColor: "#000000",
+		},
+		Elements: []Element{
+			{
+				ID:          "bg-default-cert",
+				Type:        ElementTypeBackground,
+				XMm:         0,
+				YMm:         0,
+				WidthMm:     210,
+				HeightMm:    297,
+				RotationDeg: 0,
+				Opacity:     1,
+				Visible:     true,
+				Locked:      true,
+				ZIndex:      0,
+				Properties: ElementProperties{
+					RelativePath: "assets/default_certificate_bg.jpg",
+				},
+			},
+			{
+				ID:          "el-name",
+				Type:        ElementTypeText,
+				XMm:         15,
+				YMm:         110,
+				WidthMm:     180,
+				HeightMm:    22,
+				RotationDeg: 0,
+				Opacity:     1,
+				Visible:     true,
+				Locked:      false,
+				ZIndex:      1,
+				Properties: ElementProperties{
+					Text:              "{{recipient_name}}",
+					FontFamily:        "Sloop Scriptone",
+					FontSizePt:        50,
+					FontWeight:        400,
+					Color:             "#CBBDA3",
+					Alignment:         "center",
+					VerticalAlignment: "middle",
+					FitMode:           "shrink",
+					TextTransform:     "capitalize",
+				},
+			},
+			{
+				ID:          "el-event-details",
+				Type:        ElementTypeText,
+				XMm:         15,
+				YMm:         205,
+				WidthMm:     180,
+				HeightMm:    28,
+				RotationDeg: 0,
+				Opacity:     1,
+				Visible:     true,
+				Locked:      false,
+				ZIndex:      2,
+				Properties: ElementProperties{
+					Text:              "PADA TANGGAL {{issue_date}}\nBERTEMPAT DI {{event_location}}\n{{event_address}}",
+					FontFamily:        "Trajan Pro Bold",
+					FontSizePt:        12,
+					FontWeight:        700,
+					Color:             "#CBBDA3",
+					Alignment:         "center",
+					VerticalAlignment: "middle",
+					FitMode:           "wrap",
+					LineHeight:        1.3,
+					TextTransform:     "uppercase",
+				},
+			},
+		},
+	}
+}
+
+// DefaultJanaizDocumentJSON returns the serialized JSON for the default Janaiz document.
+func DefaultJanaizDocumentJSON() string {
+	doc := DefaultJanaizDocument()
+	jsonBytes, err := doc.ToJSON()
+	if err != nil {
+		return "{}"
+	}
+	return jsonBytes
+}

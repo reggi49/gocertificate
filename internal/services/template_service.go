@@ -107,12 +107,27 @@ func (s *TemplateService) GetTemplate(ctx context.Context, id string) (*domain.T
 	return s.templateRepo.GetByID(ctx, id)
 }
 
-// ListTemplates retrieves all templates belonging to a project.
+// ListTemplates retrieves all templates belonging to a project. If no template exists, it automatically provisions the default Janaiz template.
 func (s *TemplateService) ListTemplates(ctx context.Context, projectID string) ([]domain.Template, error) {
 	if err := filesystem.ValidateID(projectID); err != nil {
 		return nil, domain.ErrInvalidProjectID
 	}
-	return s.templateRepo.ListByProject(ctx, projectID)
+	templates, err := s.templateRepo.ListByProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if len(templates) == 0 {
+		// Automatically provision default Janaiz template for seamless user experience
+		defaultTmpl, err := s.CreateTemplate(ctx, domain.CreateTemplateInput{
+			ProjectID:    projectID,
+			Name:         "Template Sertifikat Janaiz",
+			DocumentJSON: domain.DefaultJanaizDocumentJSON(),
+		})
+		if err == nil && defaultTmpl != nil {
+			return []domain.Template{*defaultTmpl}, nil
+		}
+	}
+	return templates, nil
 }
 
 // UpdateTemplate updates a template's name and document JSON.

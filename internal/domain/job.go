@@ -121,9 +121,7 @@ func (c *BatchConfig) Validate() error {
 	if c.ProjectID == "" {
 		return fmt.Errorf("project id is required")
 	}
-	if c.TemplateID == "" {
-		return fmt.Errorf("template id is required")
-	}
+	// TemplateID is optional; when omitted, BatchGenerator falls back to project's default template
 	if c.Concurrency <= 0 {
 		cpus := runtime.NumCPU()
 		calculated := int(float64(cpus) * 0.75)
