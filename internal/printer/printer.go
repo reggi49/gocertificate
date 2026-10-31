@@ -186,3 +186,4 @@ func listPrintersUnix() ([]domain.PrinterInfo, error) {
 func printPDFUnix(filePath string, printerName string, copies int) error {
 	return printPDFDarwin(filePath, printerName, copies)
 }
+

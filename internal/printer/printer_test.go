@@ -26,3 +26,4 @@ func TestPrintPDF_MissingFile(t *testing.T) {
 		t.Fatalf("expected error for non-existent file, got nil")
 	}
 }
+
