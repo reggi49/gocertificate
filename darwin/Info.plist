@@ -4,9 +4,9 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>Certificate Generator</string>
+            <string>Certificate Generator Janaiz</string>
         <key>CFBundleDisplayName</key>
-            <string>Certificate Generator</string>
+            <string>Certificate Generator Janaiz</string>
         <key>CFBundleExecutable</key>
             <string>certificate-generator</string>
         <key>CFBundleIdentifier</key>
