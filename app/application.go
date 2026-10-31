@@ -13,6 +13,7 @@ import (
 	"certificate-generator/internal/domain"
 	certgen "certificate-generator/internal/generator/certificate"
 	"certificate-generator/internal/importer"
+	"certificate-generator/internal/printer"
 	"certificate-generator/internal/renderer/pdf"
 	"certificate-generator/internal/repository/sqlite"
 	"certificate-generator/internal/services"
@@ -380,4 +381,23 @@ func (a *App) SelectOutputDirectory() (string, error) {
 // GetDefaultExportDirectory returns the user-friendly default export directory.
 func (a *App) GetDefaultExportDirectory(projectName string) string {
 	return filesystem.DefaultExportDirectory(projectName)
+}
+
+// Direct Physical Printing Service Wrappers for Wails Service Binding
+
+func (a *App) ListPrinters() ([]domain.PrinterInfo, error) {
+	return printer.ListPrinters()
+}
+
+func (a *App) PrintCertificate(filePath string, printerName string, copies int) error {
+	return printer.PrintPDF(filePath, printerName, copies)
+}
+
+func (a *App) PrintBatchCertificates(filePaths []string, printerName string, copies int) error {
+	for _, fp := range filePaths {
+		if err := printer.PrintPDF(fp, printerName, copies); err != nil {
+			return err
+		}
+	}
+	return nil
 }

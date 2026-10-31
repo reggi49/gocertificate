@@ -19,6 +19,7 @@ import type {
   BackupManifest,
   RestoreOptions,
   RestoreResult,
+  PrinterInfo,
 } from '../../bindings/certificate-generator/internal/domain/models';
 import type {
   FileMetadata,
@@ -84,6 +85,11 @@ export interface IApiClient {
   openDirectory(path: string): Promise<void>;
   selectOutputDirectory(): Promise<string>;
   getDefaultExportDirectory(projectName: string): Promise<string>;
+
+  // Direct Printing methods
+  listPrinters(): Promise<PrinterInfo[]>;
+  printCertificate(filePath: string, printerName: string, copies: number): Promise<void>;
+  printBatchCertificates(filePaths: string[], printerName: string, copies: number): Promise<void>;
 }
 
 // In-memory mock client used in testing or outside Wails desktop runtime
@@ -490,6 +496,16 @@ export class MockApiClient implements IApiClient {
   async getDefaultExportDirectory(projectName: string): Promise<string> {
     return `/mock/Downloads/Sertifikat/${projectName || 'Proyek'}`;
   }
+
+  async listPrinters(): Promise<PrinterInfo[]> {
+    return [
+      { name: 'HP LaserJet Pro 4003', isDefault: true } as unknown as PrinterInfo,
+      { name: 'Microsoft Print to PDF', isDefault: false } as unknown as PrinterInfo,
+    ];
+  }
+
+  async printCertificate(_filePath: string, _printerName: string, _copies: number): Promise<void> {}
+  async printBatchCertificates(_filePaths: string[], _printerName: string, _copies: number): Promise<void> {}
 }
 
 // Production client forwarding calls to generated Wails bindings
@@ -674,6 +690,18 @@ export class WailsApiClient implements IApiClient {
 
   getDefaultExportDirectory(projectName: string): Promise<string> {
     return AppBindings.GetDefaultExportDirectory(projectName);
+  }
+
+  listPrinters(): Promise<PrinterInfo[]> {
+    return AppBindings.ListPrinters();
+  }
+
+  printCertificate(filePath: string, printerName: string, copies: number): Promise<void> {
+    return AppBindings.PrintCertificate(filePath, printerName, copies);
+  }
+
+  printBatchCertificates(filePaths: string[], printerName: string, copies: number): Promise<void> {
+    return AppBindings.PrintBatchCertificates(filePaths, printerName, copies);
   }
 }
 

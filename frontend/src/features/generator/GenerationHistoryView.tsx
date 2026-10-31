@@ -12,6 +12,9 @@ import {
   FolderOpen,
   ExternalLink,
   Trash2,
+  RefreshCw,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { BatchGenerationModal } from './BatchGenerationModal';
@@ -19,6 +22,7 @@ import { toTitleCase } from '../../lib/units';
 import type {
   GenerationJob,
   GenerationJobItem,
+  PrinterInfo,
 } from '../../../bindings/certificate-generator/internal/domain/models';
 
 export const GenerationHistoryView: React.FC = () => {
@@ -39,6 +43,26 @@ export const GenerationHistoryView: React.FC = () => {
   // Delete job modal
   const [jobToDelete, setJobToDelete] = useState<GenerationJob | null>(null);
   const [isDeletingJob, setIsDeletingJob] = useState(false);
+
+  // Direct physical printer states
+  const [printers, setPrinters] = useState<PrinterInfo[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [printCopies, setPrintCopies] = useState<number>(1);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
+
+  // Single Item Printing modal
+  const [itemToPrint, setItemToPrint] = useState<GenerationJobItem | null>(null);
+  const [isPrintingSingle, setIsPrintingSingle] = useState(false);
+  const [printSuccessMessage, setPrintSuccessMessage] = useState<string | null>(null);
+
+  // Batch Printing modal
+  const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState(false);
+  const [isPrintingBatch, setIsPrintingBatch] = useState(false);
+  const [batchPrintProgress, setBatchPrintProgress] = useState<{
+    current: number;
+    total: number;
+    filename: string;
+  } | null>(null);
 
   const handleSelectJob = useCallback(
     async (job: GenerationJob) => {
@@ -139,6 +163,91 @@ export const GenerationHistoryView: React.FC = () => {
         err.message ||
           `Folder tidak ditemukan pada lokasi:\n${selectedJob.outputPath}\n\nFolder mungkin telah dipindahkan atau dihapus dari penyimpanan komputer.`
       );
+    }
+  };
+
+  const loadPrinters = useCallback(async () => {
+    setLoadingPrinters(true);
+    try {
+      const list = await client.listPrinters();
+      setPrinters(list || []);
+      const def = list?.find((p) => p.isDefault);
+      if (def) {
+        setSelectedPrinter(def.name);
+      } else if (list && list.length > 0) {
+        setSelectedPrinter(list[0].name);
+      }
+    } catch (err) {
+      console.error('Failed to list printers:', err);
+    } finally {
+      setLoadingPrinters(false);
+    }
+  }, [client]);
+
+  useEffect(() => {
+    loadPrinters();
+  }, [loadPrinters]);
+
+  const handleOpenPrintModal = (item: GenerationJobItem) => {
+    setItemToPrint(item);
+    setPrintCopies(1);
+    setPrintSuccessMessage(null);
+  };
+
+  const handleExecutePrintSingle = async () => {
+    if (!itemToPrint) return;
+    const filePath = getItemFilePath(itemToPrint);
+    if (!filePath) {
+      setFileError('Lokasi file tidak terdefinisi pada berkas sertifikat ini.');
+      return;
+    }
+    setIsPrintingSingle(true);
+    try {
+      await client.printCertificate(filePath, selectedPrinter, printCopies);
+      setPrintSuccessMessage(`Dokumen berhasil dikirim ke printer: ${selectedPrinter || 'Default Sistem'}`);
+      setTimeout(() => {
+        setItemToPrint(null);
+        setPrintSuccessMessage(null);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Failed to print certificate:', err);
+      setFileError(err.message || 'Gagal mengirim berkas ke printer.');
+    } finally {
+      setIsPrintingSingle(false);
+    }
+  };
+
+  const handleExecutePrintBatch = async () => {
+    const successItems = jobItems.filter(
+      (i) => (i.status === 'success' || i.status === 'completed') && i.outputFileName
+    );
+    if (successItems.length === 0) return;
+
+    setIsPrintingBatch(true);
+    try {
+      for (let i = 0; i < successItems.length; i++) {
+        const item = successItems[i];
+        const filePath = getItemFilePath(item);
+        setBatchPrintProgress({
+          current: i + 1,
+          total: successItems.length,
+          filename: item.outputFileName || '',
+        });
+        await client.printCertificate(filePath, selectedPrinter, printCopies);
+      }
+      setPrintSuccessMessage(
+        `Semua ${successItems.length} sertifikat berhasil dikirim ke antrean printer: ${selectedPrinter || 'Default Sistem'}`
+      );
+      setTimeout(() => {
+        setIsBatchPrintModalOpen(false);
+        setBatchPrintProgress(null);
+        setPrintSuccessMessage(null);
+      }, 2500);
+    } catch (err: any) {
+      console.error('Failed to batch print:', err);
+      setFileError(err.message || 'Gagal mengirim batch berkas ke printer.');
+    } finally {
+      setIsPrintingBatch(false);
     }
   };
 
@@ -346,14 +455,29 @@ export const GenerationHistoryView: React.FC = () => {
                         {selectedJob.outputPath}
                       </p>
                     </div>
-                    <button
-                      onClick={handleOpenFolder}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-xs rounded-lg transition shadow-2xs self-start sm:self-auto flex-shrink-0 cursor-pointer"
-                      title="Buka folder di sistem berkas"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-                      Buka Folder
-                    </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto flex-shrink-0">
+                      <button
+                        onClick={handleOpenFolder}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                        title="Buka folder di sistem berkas"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                        Buka Folder
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsBatchPrintModalOpen(true);
+                          setPrintCopies(1);
+                          setPrintSuccessMessage(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                        title="Cetak seluruh berkas sertifikat yang telah selesai ke printer fisik"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Cetak Semua ke Printer
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -436,14 +560,24 @@ export const GenerationHistoryView: React.FC = () => {
                                 </td>
                                 <td className="py-2.5 px-3 text-right">
                                   {isSuccess && (
-                                    <button
-                                      onClick={() => handleOpenFile(item)}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition shadow-2xs cursor-pointer"
-                                      title="Buka berkas PDF"
-                                    >
-                                      <ExternalLink className="w-3 h-3" />
-                                      Buka PDF
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => handleOpenFile(item)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition shadow-2xs cursor-pointer"
+                                        title="Buka berkas PDF"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Buka PDF
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenPrintModal(item)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition shadow-2xs cursor-pointer"
+                                        title="Cetak langsung ke printer fisik"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                        Print
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
@@ -528,6 +662,270 @@ export const GenerationHistoryView: React.FC = () => {
                   {isDeletingJob ? 'Menghapus...' : 'Ya, Hapus'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single Print Modal */}
+      {itemToPrint && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base">Cetak Sertifikat ke Printer</h3>
+                  <p className="text-xs text-slate-500">Kirim berkas sertifikat langsung ke antrean printer fisik.</p>
+                </div>
+              </div>
+
+              {printSuccessMessage ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-semibold mb-2">
+                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{printSuccessMessage}</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Penerima:</span>
+                      <span className="font-semibold text-slate-800">{toTitleCase(itemToPrint.recipientName)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Nama Berkas:</span>
+                      <span className="font-mono text-slate-700">{itemToPrint.outputFileName}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Pilih Printer Fisik</label>
+                      <button
+                        type="button"
+                        onClick={loadPrinters}
+                        disabled={loadingPrinters}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 cursor-pointer"
+                        title="Pindai ulang printer sistem"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingPrinters ? 'animate-spin' : ''}`} />
+                        Segarkan
+                      </button>
+                    </div>
+                    {printers.length > 0 ? (
+                      <select
+                        value={selectedPrinter}
+                        onChange={(e) => setSelectedPrinter(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      >
+                        {printers.map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name} {p.isDefault ? '(Default)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800">
+                        Tidak ada printer terdeteksi atau printer default sistem yang akan digunakan.
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Jumlah Salinan (Copies)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={printCopies}
+                      onChange={(e) => setPrintCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-24 text-xs px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setItemToPrint(null)}
+                      disabled={isPrintingSingle}
+                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExecutePrintSingle}
+                      disabled={isPrintingSingle}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {isPrintingSingle ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Mengirim ke Printer...
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="w-3.5 h-3.5" />
+                          Cetak Sekarang
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Print Modal */}
+      {isBatchPrintModalOpen && selectedJob && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base">Cetak Semua Sertifikat</h3>
+                  <p className="text-xs text-slate-500">Kirim seluruh sertifikat selesai ke antrean printer.</p>
+                </div>
+              </div>
+
+              {printSuccessMessage ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-semibold mb-2">
+                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{printSuccessMessage}</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">ID Pekerjaan:</span>
+                      <span className="font-mono text-slate-800 font-semibold">{selectedJob.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Total Berkas Siap Cetak:</span>
+                      <span className="font-semibold text-emerald-700">
+                        {
+                          jobItems.filter(
+                            (i) => (i.status === 'success' || i.status === 'completed') && i.outputFileName
+                          ).length
+                        }{' '}
+                        Berkas
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Pilih Printer Fisik</label>
+                      <button
+                        type="button"
+                        onClick={loadPrinters}
+                        disabled={loadingPrinters || isPrintingBatch}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 cursor-pointer"
+                        title="Pindai ulang printer sistem"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingPrinters ? 'animate-spin' : ''}`} />
+                        Segarkan
+                      </button>
+                    </div>
+                    {printers.length > 0 ? (
+                      <select
+                        value={selectedPrinter}
+                        disabled={isPrintingBatch}
+                        onChange={(e) => setSelectedPrinter(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      >
+                        {printers.map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name} {p.isDefault ? '(Default)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800">
+                        Tidak ada printer terdeteksi atau printer default sistem yang akan digunakan.
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Jumlah Salinan per Berkas
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      disabled={isPrintingBatch}
+                      value={printCopies}
+                      onChange={(e) => setPrintCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-24 text-xs px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                    />
+                  </div>
+
+                  {batchPrintProgress && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5">
+                      <div className="flex justify-between text-xs font-semibold text-blue-900">
+                        <span>Mengirim ke Antrean Cetak...</span>
+                        <span>
+                          {batchPrintProgress.current} / {batchPrintProgress.total}
+                        </span>
+                      </div>
+                      <div className="w-full bg-blue-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-blue-600 h-full transition-all duration-200"
+                          style={{
+                            width: `${(batchPrintProgress.current / batchPrintProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="font-mono text-[10px] text-blue-700 truncate">
+                        {batchPrintProgress.filename}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsBatchPrintModalOpen(false)}
+                      disabled={isPrintingBatch}
+                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExecutePrintBatch}
+                      disabled={
+                        isPrintingBatch ||
+                        jobItems.filter(
+                          (i) => (i.status === 'success' || i.status === 'completed') && i.outputFileName
+                        ).length === 0
+                      }
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {isPrintingBatch ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Memproses Antrean...
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="w-3.5 h-3.5" />
+                          Cetak Semua Sekarang
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
