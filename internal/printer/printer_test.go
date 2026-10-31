@@ -27,3 +27,17 @@ func TestPrintPDF_MissingFile(t *testing.T) {
 	}
 }
 
+func TestBuildPowerShellEncodedCommand(t *testing.T) {
+	script := "Write-Host 'Hello World'"
+	encoded := buildPowerShellEncodedCommand(script)
+	if encoded == "" {
+		t.Fatalf("expected non-empty base64 string")
+	}
+	// PowerShell encodes "Write-Host 'Hello World'" in UTF-16LE + Base64
+	// In UTF-16LE, 'W' is 0x57 0x00, 'r' is 0x72 0x00, etc.
+	expectedPrefix := "VwByAGkAdABlAC0ASABvAHMAdA"
+	if len(encoded) < len(expectedPrefix) || encoded[:len(expectedPrefix)] != expectedPrefix {
+		t.Fatalf("unexpected encoded output: %s", encoded)
+	}
+}
+

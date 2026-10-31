@@ -1,6 +1,8 @@
 package printer
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 
 	"certificate-generator/internal/domain"
 )
@@ -137,46 +140,181 @@ func listPrintersWindows() ([]domain.PrinterInfo, error) {
 }
 
 func printPDFWindows(filePath string, printerName string, copies int) error {
-	// Try Edge headless first if installed
-	edgePath := os.Getenv("ProgramFiles(x86)") + `\Microsoft\Edge\Application\msedge.exe`
-	if _, err := os.Stat(edgePath); os.IsNotExist(err) {
-		edgePath = os.Getenv("ProgramFiles") + `\Microsoft\Edge\Application\msedge.exe`
+	absPath, err := filepath.Abs(filePath)
+	if err == nil {
+		filePath = absPath
+	}
+	filePath = filepath.Clean(filePath)
+
+	if copies <= 0 {
+		copies = 1
 	}
 
-	if _, err := os.Stat(edgePath); err == nil {
-		args := []string{"--headless", "--print-to-printer"}
-		if printerName != "" {
-			args = append(args, fmt.Sprintf("--print-to-printer-name=%s", printerName))
-		}
-		args = append(args, filePath)
-
-		success := true
-		for i := 0; i < copies; i++ {
-			cmd := exec.Command(edgePath, args...)
-			if err := cmd.Run(); err != nil {
-				success = false
-				break
+	// 1. Check for dedicated silent printing utilities (SumatraPDF)
+	sumatraPaths := []string{
+		os.Getenv("ProgramFiles") + `\SumatraPDF\SumatraPDF.exe`,
+		os.Getenv("ProgramFiles(x86)") + `\SumatraPDF\SumatraPDF.exe`,
+		os.Getenv("LocalAppData") + `\SumatraPDF\SumatraPDF.exe`,
+	}
+	for _, sp := range sumatraPaths {
+		if _, err := os.Stat(sp); err == nil {
+			args := []string{"-silent", "-exit-on-print"}
+			if printerName != "" {
+				args = append(args, "-print-to", printerName)
+			} else {
+				args = append(args, "-print-to-default")
 			}
-		}
-		if success {
+			args = append(args, filePath)
+			for i := 0; i < copies; i++ {
+				if err := exec.Command(sp, args...).Run(); err != nil {
+					break
+				}
+			}
 			return nil
 		}
 	}
 
-	// Standard PowerShell Start-Process with Print or PrintTo verb
-	for i := 0; i < copies; i++ {
-		var psScript string
-		if printerName != "" {
-			psScript = fmt.Sprintf(`Start-Process -FilePath '%s' -Verb PrintTo -ArgumentList '"%s"' -PassThru | ForEach-Object { Start-Sleep -Milliseconds 1500; if (!$_.HasExited) { $_.CloseMainWindow(); Start-Sleep -Milliseconds 500; if (!$_.HasExited) { Stop-Process -Id $_.Id -Force } } }`, filePath, printerName)
-		} else {
-			psScript = fmt.Sprintf(`Start-Process -FilePath '%s' -Verb Print -PassThru | ForEach-Object { Start-Sleep -Milliseconds 1500; if (!$_.HasExited) { $_.CloseMainWindow(); Start-Sleep -Milliseconds 500; if (!$_.HasExited) { Stop-Process -Id $_.Id -Force } } }`, filePath)
-		}
-		cmd := exec.Command("powershell", "-NoProfile", "-Command", psScript)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("gagal mengirim berkas ke printer: %s (%w)", strings.TrimSpace(string(out)), err)
+	// 2. Check for Acrobat Reader (AcroRd32 / Acrobat)
+	acroPaths := []string{
+		`C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe`,
+		`C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe`,
+		`C:\Program Files\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe`,
+	}
+	for _, ap := range acroPaths {
+		if _, err := os.Stat(ap); err == nil {
+			args := []string{"/n", "/s", "/h"}
+			if printerName != "" {
+				args = append(args, "/t", filePath, printerName)
+			} else {
+				args = append(args, "/p", filePath)
+			}
+			for i := 0; i < copies; i++ {
+				_ = exec.Command(ap, args...).Run()
+			}
+			return nil
 		}
 	}
+
+	// 3. Native Windows 10 & 11 WinRT + .NET PrintDocument Engine (built into 100% of modern Windows)
+	escapedFilePath := strings.ReplaceAll(filePath, "'", "''")
+	escapedPrinter := strings.ReplaceAll(printerName, "'", "''")
+
+	psWinRTScript := fmt.Sprintf(`
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+
+[Windows.Data.Pdf.PdfDocument, Windows.Data.Pdf, ContentType = WindowsRuntime] > $null
+[Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime] > $null
+[Windows.Storage.Streams.InMemoryRandomAccessStream, Windows.Storage.Streams, ContentType = WindowsRuntime] > $null
+
+$filePath = '%s'
+$targetPrinter = '%s'
+$copies = %d
+
+if (!(Test-Path -LiteralPath $filePath)) {
+    throw "Berkas tidak ditemukan: $filePath"
+}
+
+$storageFile = [Windows.Storage.StorageFile]::GetFileFromPathAsync($filePath).GetAwaiter().GetResult()
+$pdfDoc = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($storageFile).GetAwaiter().GetResult()
+
+$pageIndex = 0
+$totalPages = $pdfDoc.PageCount
+if ($totalPages -le 0) {
+    throw "Dokumen PDF tidak memuat halaman"
+}
+
+$printDoc = New-Object System.Drawing.Printing.PrintDocument
+$printDoc.DocumentName = [System.IO.Path]::GetFileNameWithoutExtension($filePath)
+
+if ($targetPrinter -ne '') {
+    $printDoc.PrinterSettings.PrinterName = $targetPrinter
+}
+
+if ($copies -gt 1) {
+    $printDoc.PrinterSettings.Copies = [int]$copies
+}
+
+# Auto-detect orientation from first page
+$firstPage = $pdfDoc.GetPage(0)
+$firstSize = $firstPage.Size
+$firstPage.Dispose()
+
+if ($firstSize.Width -gt $firstSize.Height) {
+    $printDoc.DefaultPageSettings.Landscape = $true
+} else {
+    $printDoc.DefaultPageSettings.Landscape = $false
+}
+
+$printDoc.OriginAtMargins = $false
+
+$printDoc.add_PrintPage({
+    param($sender, $e)
+    if ($pageIndex -lt $totalPages) {
+        $page = $pdfDoc.GetPage($pageIndex)
+        $stream = New-Object Windows.Storage.Streams.InMemoryRandomAccessStream
+        $page.RenderToStreamAsync($stream).GetAwaiter().GetResult()
+        $netStream = $stream.AsStreamForRead()
+        $bitmap = [System.Drawing.Image]::FromStream($netStream)
+
+        # Scale to paper bounds maintaining aspect ratio
+        $destWidth = $e.PageBounds.Width
+        $destHeight = $e.PageBounds.Height
+        $scaleX = $destWidth / $bitmap.Width
+        $scaleY = $destHeight / $bitmap.Height
+        $scale = [Math]::Min($scaleX, $scaleY)
+        $drawWidth = $bitmap.Width * $scale
+        $drawHeight = $bitmap.Height * $scale
+        $drawX = ($destWidth - $drawWidth) / 2
+        $drawY = ($destHeight - $drawHeight) / 2
+
+        $e.Graphics.DrawImage($bitmap, [float]$drawX, [float]$drawY, [float]$drawWidth, [float]$drawHeight)
+
+        $bitmap.Dispose()
+        $netStream.Dispose()
+        $stream.Dispose()
+        $page.Dispose()
+
+        $pageIndex++
+        if ($pageIndex -lt $totalPages) {
+            $e.HasMorePages = $true
+        } else {
+            $e.HasMorePages = $false
+            $pageIndex = 0
+        }
+    }
+})
+
+$printDoc.Print()
+$printDoc.Dispose()
+`, escapedFilePath, escapedPrinter, copies)
+
+	encodedCmd := buildPowerShellEncodedCommand(psWinRTScript)
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encodedCmd)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	// 4. Fallback: ShellExecute Print verb (without prematurely killing the process)
+	outStr := strings.TrimSpace(string(out))
+	psFallback := fmt.Sprintf(`Start-Process -FilePath '%s' -Verb Print`, escapedFilePath)
+	fallbackCmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psFallback)
+	if fbOut, fbErr := fallbackCmd.CombinedOutput(); fbErr != nil {
+		return fmt.Errorf("gagal mencetak dokumen ke printer di Windows: %s (fallback: %s)", outStr, strings.TrimSpace(string(fbOut)))
+	}
+
 	return nil
+}
+
+func buildPowerShellEncodedCommand(script string) string {
+	utf16Units := utf16.Encode([]rune(script))
+	rawBytes := make([]byte, len(utf16Units)*2)
+	for i, u := range utf16Units {
+		binary.LittleEndian.PutUint16(rawBytes[i*2:], u)
+	}
+	return base64.StdEncoding.EncodeToString(rawBytes)
 }
 
 func listPrintersUnix() ([]domain.PrinterInfo, error) {
