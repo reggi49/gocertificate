@@ -538,6 +538,25 @@ func (g *BatchGenerator) CancelJob(jobID string) error {
 	return nil
 }
 
+// HasActiveJobs returns true if any batch generation job is currently running.
+func (g *BatchGenerator) HasActiveJobs() bool {
+	g.cancelsMu.Lock()
+	defer g.cancelsMu.Unlock()
+	return len(g.cancels) > 0
+}
+
+// CancelAllJobs cancels all currently active batch generation jobs.
+func (g *BatchGenerator) CancelAllJobs() {
+	g.cancelsMu.Lock()
+	defer g.cancelsMu.Unlock()
+	for jobID, cancel := range g.cancels {
+		if cancel != nil {
+			cancel()
+			_ = g.jobRepo.UpdateJobStatus(context.Background(), jobID, domain.JobStatusCancelling, "Cancelling on exit...")
+		}
+	}
+}
+
 // RetryFailedItems retries generating only the failed items of a previous job.
 func (g *BatchGenerator) RetryFailedItems(
 	ctx context.Context,

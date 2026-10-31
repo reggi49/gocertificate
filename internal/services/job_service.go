@@ -56,6 +56,21 @@ func (s *JobService) CancelJob(jobID string) error {
 	return s.generator.CancelJob(jobID)
 }
 
+// HasActiveJobs returns true if any batch generation job is currently executing.
+func (s *JobService) HasActiveJobs() bool {
+	if s.generator == nil {
+		return false
+	}
+	return s.generator.HasActiveJobs()
+}
+
+// CancelAllJobs cancels all running batch jobs.
+func (s *JobService) CancelAllJobs() {
+	if s.generator != nil {
+		s.generator.CancelAllJobs()
+	}
+}
+
 // RetryFailedItems retries failed items of a job.
 func (s *JobService) RetryFailedItems(
 	ctx context.Context,

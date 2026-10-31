@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"certificate-generator/internal/domain"
 	certgen "certificate-generator/internal/generator/certificate"
@@ -42,6 +43,7 @@ type App struct {
 	RecipientService *services.RecipientService
 	JobService       *services.JobService
 	BackupManager    *backup.BackupManager
+	dbMu             sync.Mutex
 }
 
 // DefaultDataDirectory returns standard OS user application support path.
@@ -120,10 +122,29 @@ func NewApp(cfg Config) (*App, error) {
 
 // Close gracefully releases application resources.
 func (a *App) Close() error {
+	a.dbMu.Lock()
+	defer a.dbMu.Unlock()
 	if a.DB != nil {
-		return a.DB.Close()
+		err := a.DB.Close()
+		a.DB = nil
+		return err
 	}
 	return nil
+}
+
+// HasActiveJobs returns true if there is an active batch generation in progress.
+func (a *App) HasActiveJobs() bool {
+	if a.JobService == nil {
+		return false
+	}
+	return a.JobService.HasActiveJobs()
+}
+
+// CancelAllJobs cancels all running batch jobs.
+func (a *App) CancelAllJobs() {
+	if a.JobService != nil {
+		a.JobService.CancelAllJobs()
+	}
 }
 
 // RenderPreviewPDF handles on-demand rendering request from the UI.
