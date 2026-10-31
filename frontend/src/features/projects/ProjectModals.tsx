@@ -133,19 +133,6 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-              Deskripsi (Opsional)
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Catatan mengenai sertifikat dan target penerima..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-          </div>
-
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

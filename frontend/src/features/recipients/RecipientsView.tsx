@@ -523,11 +523,6 @@ const RecipientFormModal: React.FC<{
   const { client } = useProjectStore();
 
   const [fullName, setFullName] = useState(initial?.fullName || '');
-  const [email, setEmail] = useState(initial?.email || '');
-  const [organization, setOrganization] = useState(initial?.organization || '');
-  const [eventName, setEventName] = useState(initial?.eventName || '');
-  const [issueDate, setIssueDate] = useState(initial?.issueDate || '');
-  const [certificateId, setCertificateId] = useState(initial?.certificateId || '');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -546,22 +541,17 @@ const RecipientFormModal: React.FC<{
         await client.updateRecipient({
           ...initial,
           fullName: toTitleCase(fullName.trim()),
-          email: email.trim(),
-          organization: organization.trim(),
-          eventName: eventName.trim(),
-          issueDate: issueDate.trim(),
-          certificateId: certificateId.trim(),
         });
       } else {
         await client.createRecipient({
           id: '',
           projectId,
           fullName: toTitleCase(fullName.trim()),
-          email: email.trim(),
-          organization: organization.trim(),
-          eventName: eventName.trim(),
-          issueDate: issueDate.trim(),
-          certificateId: certificateId.trim(),
+          email: '',
+          organization: '',
+          eventName: '',
+          issueDate: '',
+          certificateId: '',
           customFieldsJson: '',
           createdAt: new Date() as any,
           updatedAt: new Date() as any,
@@ -596,7 +586,7 @@ const RecipientFormModal: React.FC<{
           )}
 
           <div>
-            <label htmlFor="manual-fullname" className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="manual-fullname" className="block text-xs font-semibold text-slate-700 mb-1.5">
               Nama Lengkap *
             </label>
             <input
@@ -604,69 +594,11 @@ const RecipientFormModal: React.FC<{
               type="text"
               required
               autoFocus
+              placeholder="Contoh: Muhamad Reggi"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="manual-email" className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-              <input
-                id="manual-email"
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl"
-              />
-            </div>
-            <div>
-              <label htmlFor="manual-certid" className="block text-xs font-semibold text-slate-700 mb-1">No. Sertifikat</label>
-              <input
-                id="manual-certid"
-                type="text"
-                value={certificateId}
-                onChange={(e) => setCertificateId(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl font-mono"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="manual-org" className="block text-xs font-semibold text-slate-700 mb-1">
-              Organisasi / Instansi
-            </label>
-            <input
-              id="manual-org"
-              type="text"
-              value={organization}
-              onChange={(e) => setOrganization(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="manual-event" className="block text-xs font-semibold text-slate-700 mb-1">Nama Acara</label>
-              <input
-                id="manual-event"
-                type="text"
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl"
-              />
-            </div>
-            <div>
-              <label htmlFor="manual-date" className="block text-xs font-semibold text-slate-700 mb-1">Tgl Terbit</label>
-              <input
-                id="manual-date"
-                type="text"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl"
-              />
-            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
