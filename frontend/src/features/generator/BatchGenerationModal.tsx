@@ -110,15 +110,6 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
     };
   }, [isOpen, projectId, recipientIds, client, activeProject]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setActiveJob(null);
-      setProgress(null);
-      setIsRunning(false);
-      setError('');
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   const handleChooseFolder = async () => {

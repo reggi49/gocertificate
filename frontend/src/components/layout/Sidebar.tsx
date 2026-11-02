@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               {activeProject.name}
             </p>
             <p className="text-[11px] text-slate-400 truncate mt-0.5">
-              {activeProject.description || 'Tidak ada deskripsi'}
+              {activeProject.eventDate ? `📅 ${activeProject.eventDate}` : 'Belum ada tanggal'}
             </p>
           </div>
         ) : (

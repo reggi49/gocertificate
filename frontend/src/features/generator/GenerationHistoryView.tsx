@@ -595,15 +595,17 @@ export const GenerationHistoryView: React.FC = () => {
       )}
 
       {/* Batch Modal */}
-      <BatchGenerationModal
-        isOpen={isModalOpen}
-        projectId={activeProject.id}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {
-          setIsModalOpen(false);
-          loadJobs();
-        }}
-      />
+      {isModalOpen && (
+        <BatchGenerationModal
+          isOpen={isModalOpen}
+          projectId={activeProject.id}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            setIsModalOpen(false);
+            loadJobs();
+          }}
+        />
+      )}
 
       {/* Missing File Error Modal */}
       {fileError && (
