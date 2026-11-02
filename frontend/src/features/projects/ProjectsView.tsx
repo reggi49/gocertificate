@@ -173,17 +173,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
             return (
               <div
                 key={p.id}
-                className={`bg-white rounded-2xl border p-5 shadow-xs transition hover:shadow-md flex flex-col justify-between relative ${
+                onClick={() => onOpenProject(p)}
+                className={`bg-white rounded-2xl border p-5 shadow-xs transition hover:shadow-md hover:border-blue-300 flex flex-col justify-between relative cursor-pointer group ${
                   isActive ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200/80'
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition">
                         <FolderKanban className="w-5 h-5" />
                       </div>
-                      <h3 className="font-bold text-slate-800 text-base truncate leading-tight">
+                      <h3 className="font-bold text-slate-800 text-base truncate leading-tight group-hover:text-blue-600 transition">
                         {p.name}
                       </h3>
                     </div>
@@ -304,8 +305,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                   </div>
 
                   <button
-                    onClick={() => onOpenProject(p)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-700 bg-slate-100 hover:bg-blue-600 hover:text-white transition shadow-2xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenProject(p);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-700 bg-slate-100 group-hover:bg-blue-600 group-hover:text-white transition shadow-2xs"
                   >
                     Buka Acara
                     <ExternalLink className="w-3 h-3" />

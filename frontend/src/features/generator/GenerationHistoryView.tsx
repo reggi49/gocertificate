@@ -599,7 +599,10 @@ export const GenerationHistoryView: React.FC = () => {
         isOpen={isModalOpen}
         projectId={activeProject.id}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={loadJobs}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          loadJobs();
+        }}
       />
 
       {/* Missing File Error Modal */}

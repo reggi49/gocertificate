@@ -110,6 +110,15 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
     };
   }, [isOpen, projectId, recipientIds, client, activeProject]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveJob(null);
+      setProgress(null);
+      setIsRunning(false);
+      setError('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleChooseFolder = async () => {
@@ -206,6 +215,17 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
     }
   };
 
+  const handleFinish = () => {
+    setActiveJob(null);
+    setProgress(null);
+    setIsRunning(false);
+    try {
+      onSuccess();
+    } finally {
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -222,7 +242,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
             <button
               onClick={() => {
                 if (activeJob) {
-                  onSuccess();
+                  handleFinish();
                 } else {
                   onClose();
                 }
@@ -485,9 +505,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
           {activeJob && (
             <button
               type="button"
-              onClick={() => {
-                onSuccess();
-              }}
+              onClick={handleFinish}
               className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />

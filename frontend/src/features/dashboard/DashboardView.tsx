@@ -155,9 +155,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {recentProjects.map((p) => (
                 <div
                   key={p.id}
-                  className="py-3.5 flex items-center justify-between group hover:bg-slate-50/70 -mx-2 px-3 rounded-xl transition"
+                  onClick={() => onSelectProject(p)}
+                  className="py-3.5 flex items-center justify-between group hover:bg-blue-50/40 -mx-2 px-3 rounded-xl transition cursor-pointer"
                 >
-                  <div className="min-w-0 pr-4">
+                  <div className="min-w-0 pr-4 flex-1">
                     <h4 className="text-sm font-semibold text-slate-800 truncate group-hover:text-blue-600 transition">
                       {p.name}
                     </h4>
@@ -178,8 +179,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                   </div>
                   <button
-                    onClick={() => onSelectProject(p)}
-                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition shadow-2xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectProject(p);
+                    }}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 group-hover:bg-blue-600 group-hover:text-white rounded-lg transition shadow-2xs"
                   >
                     Buka
                     <ExternalLink className="w-3.5 h-3.5" />

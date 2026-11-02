@@ -37,7 +37,7 @@ export const AppShell: React.FC = () => {
 
   const handleOpenProject = (project: Project) => {
     setActiveProject(project);
-    setCurrentTab('templates');
+    setCurrentTab('recipients');
   };
 
   return (
