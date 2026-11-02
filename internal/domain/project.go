@@ -85,7 +85,11 @@ func ValidateProjectName(name string) (string, error) {
 
 // ValidateCreateProjectInput validates input before creation.
 func ValidateCreateProjectInput(input CreateProjectInput) (CreateProjectInput, error) {
-	cleanName, err := ValidateProjectName(input.Name)
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		name = strings.TrimSpace(input.EventLocation)
+	}
+	cleanName, err := ValidateProjectName(name)
 	if err != nil {
 		return input, err
 	}

@@ -53,4 +53,18 @@ func TestProjectValidation(t *testing.T) {
 	if clean.EventAddress != "Jl. Ganesha No. 10, Bandung" {
 		t.Errorf("Expected trimmed event address, got '%s'", clean.EventAddress)
 	}
+
+	// Fallback name to EventLocation when Name is empty
+	cleanFallback, err := domain.ValidateCreateProjectInput(domain.CreateProjectInput{
+		Name:          "",
+		EventLocation: "Hotel Mulia",
+		EventDate:     "2026-11-02",
+		EventAddress:  "Jl. Sudirman",
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error for empty name with location: %v", err)
+	}
+	if cleanFallback.Name != "Hotel Mulia" {
+		t.Errorf("Expected fallback name 'Hotel Mulia', got '%s'", cleanFallback.Name)
+	}
 }

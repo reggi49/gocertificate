@@ -15,11 +15,9 @@ interface CreateModalProps {
 }
 
 export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [name, setName] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventAddress, setEventAddress] = useState('');
-  const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,29 +25,40 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Nama acara wajib diisi');
+    if (!eventDate.trim()) {
+      setError('Tanggal acara wajib diisi');
       return;
     }
-    if (name.trim().length > 100) {
-      setError('Nama acara tidak boleh lebih dari 100 karakter');
+    if (!eventLocation.trim()) {
+      setError('Tempat acara wajib diisi');
+      return;
+    }
+    if (!eventAddress.trim()) {
+      setError('Alamat acara wajib diisi');
+      return;
+    }
+    if (eventLocation.trim().length > 100) {
+      setError('Tempat acara tidak boleh lebih dari 100 karakter');
+      return;
+    }
+    if (eventAddress.trim().length > 255) {
+      setError('Alamat acara tidak boleh lebih dari 255 karakter');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
+      const projectName = eventLocation.trim();
       await onSubmit(
-        name.trim(),
-        description.trim(),
+        projectName,
+        '',
         eventDate.trim(),
         eventLocation.trim(),
         eventAddress.trim()
       );
-      setName('');
       setEventDate('');
       setEventLocation('');
       setEventAddress('');
-      setDescription('');
       onClose();
     } catch (err: any) {
       setError(err.message || 'Gagal membuat acara');
@@ -78,28 +87,15 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-              Nama Acara *
-            </label>
-            <input
-              type="text"
-              required
-              autoFocus
-              placeholder="Contoh: Wisuda Akbar 2026"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Tanggal Acara
+                Tanggal Acara *
               </label>
               <input
                 type="date"
+                required
+                autoFocus
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -108,10 +104,11 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Tempat
+                Tempat *
               </label>
               <input
                 type="text"
+                required
                 placeholder="Contoh: Hotel Mulia / Aula Utama"
                 value={eventLocation}
                 onChange={(e) => setEventLocation(e.target.value)}
@@ -122,10 +119,11 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-              Alamat
+              Alamat *
             </label>
             <input
               type="text"
+              required
               placeholder="Contoh: Jl. Jenderal Sudirman No. 123, Jakarta Pusat"
               value={eventAddress}
               onChange={(e) => setEventAddress(e.target.value)}
