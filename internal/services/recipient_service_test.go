@@ -230,9 +230,9 @@ func TestRecipientServiceImportAndCRUD(t *testing.T) {
 		t.Errorf("Expected 1000 imported rows from XLSX, got %d", xlsxImportSummary.ImportedRows)
 	}
 
-	// 10. Test ExportRecipientsToExcel
+	// 10. Test ExportRecipientsToExcel (All Recipients)
 	exportXlsxPath := filepath.Join(t.TempDir(), "exported_recipients.xlsx")
-	outPath, err := recSvc.ExportRecipientsToExcel(ctx, proj.ID, exportXlsxPath)
+	outPath, err := recSvc.ExportRecipientsToExcel(ctx, proj.ID, nil, exportXlsxPath)
 	if err != nil {
 		t.Fatalf("ExportRecipientsToExcel failed: %v", err)
 	}
@@ -250,5 +250,37 @@ func TestRecipientServiceImportAndCRUD(t *testing.T) {
 	}
 	if len(rows) != 1001 {
 		t.Errorf("Expected 1001 rows in exported Excel (1 header + 1000 data rows), got %d", len(rows))
+	}
+	if len(rows[0]) != 5 {
+		t.Errorf("Expected 5 columns in exported Excel, got %d (%v)", len(rows[0]), rows[0])
+	}
+	expectedHeaders := []string{"No", "Nama Lengkap", "Tanggal Acara", "Tempat", "Alamat"}
+	for i, h := range expectedHeaders {
+		if rows[0][i] != h {
+			t.Errorf("Column %d header mismatch: expected %s, got %s", i, h, rows[0][i])
+		}
+	}
+
+	// 11. Test ExportRecipientsToExcel (Selected Recipients)
+	allRecs, _ := recSvc.ListRecipients(ctx, domain.RecipientFilter{ProjectID: proj.ID, Page: 1, PageSize: 2})
+	if allRecs != nil && len(allRecs.Items) == 2 {
+		selectedIDs := []string{allRecs.Items[0].ID, allRecs.Items[1].ID}
+		selectedExportPath := filepath.Join(t.TempDir(), "exported_selected.xlsx")
+		_, err := recSvc.ExportRecipientsToExcel(ctx, proj.ID, selectedIDs, selectedExportPath)
+		if err != nil {
+			t.Fatalf("ExportRecipientsToExcel selected failed: %v", err)
+		}
+		selFile, err := excelize.OpenFile(selectedExportPath)
+		if err != nil {
+			t.Fatalf("Failed to open selected exported Excel: %v", err)
+		}
+		defer selFile.Close()
+		selRows, err := selFile.GetRows("Data Penerima")
+		if err != nil {
+			t.Fatalf("Failed to read selected exported sheet: %v", err)
+		}
+		if len(selRows) != 3 {
+			t.Errorf("Expected 3 rows (1 header + 2 data rows), got %d", len(selRows))
+		}
 	}
 }

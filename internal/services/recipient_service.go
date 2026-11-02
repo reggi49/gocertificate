@@ -439,8 +439,9 @@ func (s *RecipientService) CountRecipients(ctx context.Context, projectID string
 	return s.repo.Count(ctx, projectID)
 }
 
-// ExportRecipientsToExcel exports all recipients for a project into a formatted Excel (.xlsx) file.
-func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectID string, outputPath string) (string, error) {
+// ExportRecipientsToExcel exports recipients for a project into a formatted Excel (.xlsx) file.
+// If recipientIDs is provided and non-empty, only those recipients will be exported; otherwise all recipients are exported.
+func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectID string, recipientIDs []string, outputPath string) (string, error) {
 	if err := filesystem.ValidateID(projectID); err != nil {
 		return "", domain.ErrInvalidProjectID
 	}
@@ -455,6 +456,20 @@ func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectI
 		return "", fmt.Errorf("gagal memuat daftar penerima: %w", err)
 	}
 
+	if len(recipientIDs) > 0 {
+		idSet := make(map[string]bool, len(recipientIDs))
+		for _, id := range recipientIDs {
+			idSet[id] = true
+		}
+		var filtered []domain.Recipient
+		for _, r := range recipients {
+			if idSet[r.ID] {
+				filtered = append(filtered, r)
+			}
+		}
+		recipients = filtered
+	}
+
 	f := excelize.NewFile()
 	defer func() {
 		_ = f.Close()
@@ -466,13 +481,9 @@ func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectI
 	headers := []string{
 		"No",
 		"Nama Lengkap",
-		"No. Sertifikat",
 		"Tanggal Acara",
 		"Tempat",
 		"Alamat",
-		"Organisasi / Instansi",
-		"Email",
-		"Tanggal Ditambahkan",
 	}
 
 	headerStyle, _ := f.NewStyle(&excelize.Style{
@@ -543,34 +554,22 @@ func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectI
 
 		_ = f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), i+1)
 		_ = f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), r.FullName)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), r.CertificateID)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), eventDate)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), proj.EventLocation)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), proj.EventAddress)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), r.Organization)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), r.Email)
-		_ = f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), r.CreatedAt.Format("2006-01-02 15:04"))
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), eventDate)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), proj.EventLocation)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), proj.EventAddress)
 
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), centerStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), dataStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), centerStyle)
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("D%d", row), fmt.Sprintf("D%d", row), centerStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("D%d", row), fmt.Sprintf("D%d", row), dataStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", row), fmt.Sprintf("E%d", row), dataStyle)
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("F%d", row), fmt.Sprintf("F%d", row), dataStyle)
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", row), fmt.Sprintf("G%d", row), dataStyle)
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("H%d", row), fmt.Sprintf("H%d", row), dataStyle)
-		_ = f.SetCellStyle(sheetName, fmt.Sprintf("I%d", row), fmt.Sprintf("I%d", row), centerStyle)
 	}
 
 	_ = f.SetColWidth(sheetName, "A", "A", 6)
 	_ = f.SetColWidth(sheetName, "B", "B", 30)
-	_ = f.SetColWidth(sheetName, "C", "C", 20)
-	_ = f.SetColWidth(sheetName, "D", "D", 16)
-	_ = f.SetColWidth(sheetName, "E", "E", 25)
-	_ = f.SetColWidth(sheetName, "F", "F", 35)
-	_ = f.SetColWidth(sheetName, "G", "G", 25)
-	_ = f.SetColWidth(sheetName, "H", "H", 25)
-	_ = f.SetColWidth(sheetName, "I", "I", 20)
+	_ = f.SetColWidth(sheetName, "C", "C", 18)
+	_ = f.SetColWidth(sheetName, "D", "D", 28)
+	_ = f.SetColWidth(sheetName, "E", "E", 40)
 
 	dir := filepath.Dir(outputPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

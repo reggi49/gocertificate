@@ -161,9 +161,11 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
     if (!activeProject || total === 0) return;
     setIsExporting(true);
     try {
-      const exportedPath = await client.exportRecipientsToExcel(activeProject.id);
+      const exportIds = selectedIds.length > 0 && selectedIds.length < total ? selectedIds : [];
+      const exportedCount = exportIds.length > 0 ? exportIds.length : total;
+      const exportedPath = await client.exportRecipientsToExcel(activeProject.id, exportIds);
       if (exportedPath) {
-        setExportNotice({ path: exportedPath, count: total });
+        setExportNotice({ path: exportedPath, count: exportedCount });
         setTimeout(() => setExportNotice(null), 8000);
       }
     } catch (err: any) {
@@ -199,20 +201,6 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportExcel}
-            disabled={isExporting || total === 0}
-            title={total === 0 ? 'Belum ada data penerima untuk diekspor' : 'Export data penerima ke file Excel (.xlsx)'}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-            ) : (
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            )}
-            {isExporting ? 'Mengekspor...' : 'Export Excel'}
-          </button>
-
           <button
             onClick={() => setIsCreateOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition cursor-pointer"
@@ -281,8 +269,8 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
           />
         </div>
 
-        {/* Selected Items Action */}
-        <div className="flex items-center gap-3">
+        {/* Selected Items Action & Export & Page Size */}
+        <div className="flex flex-wrap items-center gap-3">
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
@@ -306,6 +294,31 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
               </div>
             </div>
           )}
+
+          {/* Export Excel Button sejajar cari nama / baris per halaman */}
+          <button
+            onClick={handleExportExcel}
+            disabled={isExporting || total === 0}
+            title={
+              total === 0
+                ? 'Belum ada data penerima'
+                : selectedIds.length > 0 && selectedIds.length < total
+                ? `Export ${selectedIds.length} data terpilih ke file Excel (.xlsx)`
+                : 'Export semua data penerima ke file Excel (.xlsx)'
+            }
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            {isExporting
+              ? 'Mengekspor...'
+              : selectedIds.length > 0 && selectedIds.length < total
+              ? `Export Excel (${selectedIds.length})`
+              : 'Export Excel'}
+          </button>
 
           {/* Page size */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500">

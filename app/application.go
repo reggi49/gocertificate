@@ -282,14 +282,18 @@ func (a *App) CountRecipients(projectID string) (int, error) {
 	return a.RecipientService.CountRecipients(context.Background(), projectID)
 }
 
-func (a *App) ExportRecipientsToExcel(projectID string, targetPath string) (string, error) {
+func (a *App) ExportRecipientsToExcel(projectID string, recipientIDs []string, targetPath string) (string, error) {
 	if targetPath == "" {
 		proj, err := a.ProjectService.GetProject(context.Background(), projectID)
 		defaultName := "Data_Penerima.xlsx"
 		if err == nil && proj != nil && proj.Name != "" {
 			sanitized := strings.ReplaceAll(proj.Name, "/", "_")
 			sanitized = strings.ReplaceAll(sanitized, "\\", "_")
-			defaultName = fmt.Sprintf("Data_Penerima_%s.xlsx", sanitized)
+			if len(recipientIDs) > 0 {
+				defaultName = fmt.Sprintf("Data_Penerima_%s_Pilihan.xlsx", sanitized)
+			} else {
+				defaultName = fmt.Sprintf("Data_Penerima_%s.xlsx", sanitized)
+			}
 		}
 
 		app := wailsApp.Get()
@@ -320,7 +324,7 @@ func (a *App) ExportRecipientsToExcel(projectID string, targetPath string) (stri
 		targetPath += ".xlsx"
 	}
 
-	return a.RecipientService.ExportRecipientsToExcel(context.Background(), projectID, targetPath)
+	return a.RecipientService.ExportRecipientsToExcel(context.Background(), projectID, recipientIDs, targetPath)
 }
 
 // Batch Generation Job Service Wrappers for Wails Service Binding

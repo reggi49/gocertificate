@@ -67,7 +67,7 @@ export interface IApiClient {
   deleteAllRecipients(projectId: string): Promise<void>;
   listRecipients(filter: RecipientFilter): Promise<PaginatedRecipients | null>;
   countRecipients(projectId: string): Promise<number>;
-  exportRecipientsToExcel(projectId: string, targetPath?: string): Promise<string>;
+  exportRecipientsToExcel(projectId: string, recipientIds?: string[], targetPath?: string): Promise<string>;
 
   // Batch Job methods
   startBatchGeneration(cfg: BatchConfig): Promise<GenerationJob | null>;
@@ -400,7 +400,7 @@ export class MockApiClient implements IApiClient {
     return this.recipients.filter((r) => r.projectId === projectId).length;
   }
 
-  async exportRecipientsToExcel(_projectId: string, targetPath?: string): Promise<string> {
+  async exportRecipientsToExcel(_projectId: string, _recipientIds?: string[], targetPath?: string): Promise<string> {
     return targetPath || '/downloads/Data_Penerima.xlsx';
   }
 
@@ -641,8 +641,8 @@ export class WailsApiClient implements IApiClient {
     return AppBindings.CountRecipients(projectId);
   }
 
-  exportRecipientsToExcel(projectId: string, targetPath: string = ''): Promise<string> {
-    return AppBindings.ExportRecipientsToExcel(projectId, targetPath);
+  exportRecipientsToExcel(projectId: string, recipientIds: string[] = [], targetPath: string = ''): Promise<string> {
+    return AppBindings.ExportRecipientsToExcel(projectId, recipientIds, targetPath);
   }
 
   startBatchGeneration(cfg: BatchConfig): Promise<GenerationJob | null> {
