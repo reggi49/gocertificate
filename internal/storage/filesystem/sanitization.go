@@ -70,6 +70,83 @@ func SanitizeFilename(name string) string {
 	return clean
 }
 
+// FormatEventFolderName generates a clean, filesystem-safe folder name based on
+// "Tempat - Alamat - Tanggal" across all operating systems (Windows, macOS, Linux).
+func FormatEventFolderName(location string, address string, eventDate string, fallback string) string {
+	var parts []string
+
+	cleanLoc := strings.TrimSpace(location)
+	if cleanLoc != "" {
+		parts = append(parts, cleanLoc)
+	}
+
+	cleanAddr := strings.TrimSpace(address)
+	if cleanAddr != "" {
+		parts = append(parts, cleanAddr)
+	}
+
+	cleanDate := strings.TrimSpace(eventDate)
+	if cleanDate != "" {
+		// Normalize slashes in date to dashes (e.g. 02/11/2026 -> 02-11-2026)
+		cleanDate = strings.ReplaceAll(cleanDate, "/", "-")
+		cleanDate = strings.ReplaceAll(cleanDate, "\\", "-")
+		parts = append(parts, cleanDate)
+	}
+
+	var rawName string
+	if len(parts) > 0 {
+		rawName = strings.Join(parts, " - ")
+	} else if strings.TrimSpace(fallback) != "" {
+		rawName = strings.TrimSpace(fallback)
+	} else {
+		rawName = "Acara"
+	}
+
+	return SanitizeFolderName(rawName)
+}
+
+var (
+	folderIllegalChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
+	multiDash          = regexp.MustCompile(`-{2,}`)
+	multiSpaces        = regexp.MustCompile(`\s+`)
+)
+
+// SanitizeFolderName cleans a folder name to be safely used across Windows, macOS, and Linux,
+// preserving readable spaces, commas, and dashes while eliminating forbidden characters and trailing dots/spaces.
+func SanitizeFolderName(name string) string {
+	clean := strings.TrimSpace(name)
+	if clean == "" {
+		return "Acara"
+	}
+
+	// Replace illegal characters with dash
+	clean = folderIllegalChars.ReplaceAllString(clean, "-")
+
+	// Replace multiple consecutive dashes with single dash
+	clean = multiDash.ReplaceAllString(clean, "-")
+
+	// Normalize spaces
+	clean = multiSpaces.ReplaceAllString(clean, " ")
+	clean = strings.Trim(clean, " .-")
+
+	if clean == "" {
+		return "Acara"
+	}
+
+	// Check against reserved Windows names (case insensitive)
+	cleanUpper := strings.ToUpper(clean)
+	if reservedNames[cleanUpper] {
+		clean = "Acara_" + clean
+	}
+
+	// Bound max length to 150 characters
+	if len(clean) > 150 {
+		clean = strings.TrimRight(clean[:150], " .-")
+	}
+
+	return clean
+}
+
 func filepathExt(path string) string {
 	for i := len(path) - 1; i >= 0 && path[i] != '/' && path[i] != '\\'; i-- {
 		if path[i] == '.' {

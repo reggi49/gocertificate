@@ -63,12 +63,20 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
   useEffect(() => {
     let ignore = false;
     if (isOpen) {
-      // Initialize default export directory
-      client.getDefaultExportDirectory(activeProject?.name || '').then((dir) => {
-        if (!ignore && dir) {
-          setOutputDir(dir);
-        }
-      });
+      // Initialize default export directory based on event (Tempat - Alamat - Tanggal)
+      if (activeProject?.id) {
+        client.getProjectExportDirectory(activeProject.id).then((dir) => {
+          if (!ignore && dir) {
+            setOutputDir(dir);
+          }
+        });
+      } else {
+        client.getDefaultExportDirectory(activeProject?.name || '').then((dir) => {
+          if (!ignore && dir) {
+            setOutputDir(dir);
+          }
+        });
+      }
 
       client.listTemplates(projectId).then(async (list) => {
         if (ignore) return;

@@ -69,3 +69,64 @@ func TestValidateID(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatEventFolderName(t *testing.T) {
+	tests := []struct {
+		name      string
+		location  string
+		address   string
+		date      string
+		fallback  string
+		expected  string
+	}{
+		{
+			name:     "Complete event info",
+			location: "Mesjid Agung",
+			address:  "Jl. Merdeka No. 12/B",
+			date:     "2026-11-02",
+			fallback: "Acara",
+			expected: "Mesjid Agung - Jl. Merdeka No. 12-B - 2026-11-02",
+		},
+		{
+			name:     "Date with slashes",
+			location: "Hotel Mulia",
+			address:  "Jl. Sudirman",
+			date:     "02/11/2026",
+			fallback: "Acara",
+			expected: "Hotel Mulia - Jl. Sudirman - 02-11-2026",
+		},
+		{
+			name:     "Only location and date",
+			location: "Aula Barat",
+			address:  "",
+			date:     "2026-11-02",
+			fallback: "Acara",
+			expected: "Aula Barat - 2026-11-02",
+		},
+		{
+			name:     "Only location",
+			location: "Lapangan",
+			address:  "",
+			date:     "",
+			fallback: "Acara",
+			expected: "Lapangan",
+		},
+		{
+			name:     "Empty all fields with fallback",
+			location: "",
+			address:  "",
+			date:     "",
+			fallback: "Seminar Janaiz 2026",
+			expected: "Seminar Janaiz 2026",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filesystem.FormatEventFolderName(tt.location, tt.address, tt.date, tt.fallback)
+			if got != tt.expected {
+				t.Errorf("FormatEventFolderName() = %q, expected %q", got, tt.expected)
+			}
+		})
+	}
+}

@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"sync"
 
 	"certificate-generator/internal/domain"
@@ -282,48 +279,26 @@ func (a *App) CountRecipients(projectID string) (int, error) {
 	return a.RecipientService.CountRecipients(context.Background(), projectID)
 }
 
-func (a *App) ExportRecipientsToExcel(projectID string, recipientIDs []string, targetPath string) (string, error) {
-	if targetPath == "" {
-		proj, err := a.ProjectService.GetProject(context.Background(), projectID)
-		defaultName := "Data_Penerima.xlsx"
-		if err == nil && proj != nil && proj.Name != "" {
-			sanitized := strings.ReplaceAll(proj.Name, "/", "_")
-			sanitized = strings.ReplaceAll(sanitized, "\\", "_")
-			if len(recipientIDs) > 0 {
-				defaultName = fmt.Sprintf("Data_Penerima_%s_Pilihan.xlsx", sanitized)
-			} else {
-				defaultName = fmt.Sprintf("Data_Penerima_%s.xlsx", sanitized)
-			}
-		}
-
-		app := wailsApp.Get()
-		if app != nil && app.Dialog != nil {
-			dialog := app.Dialog.SaveFileWithOptions(&wailsApp.SaveFileDialogOptions{
-				Title:      "Simpan Berkas Data Penerima Excel",
-				Filename:   defaultName,
-				ButtonText: "Simpan Excel",
-				Filters: []wailsApp.FileFilter{
-					{DisplayName: "Excel Spreadsheet (*.xlsx)", Pattern: "*.xlsx"},
-				},
-			})
-			selectedPath, err := dialog.PromptForSingleSelection()
-			if err != nil {
-				return "", err
-			}
-			if selectedPath == "" {
-				return "", nil
-			}
-			targetPath = selectedPath
-		} else {
-			home, _ := os.UserHomeDir()
-			targetPath = filepath.Join(home, "Downloads", defaultName)
-		}
+func (a *App) ExportRecipientsToExcel(projectID string, recipientIDs []string) (string, error) {
+	proj, err := a.ProjectService.GetProject(context.Background(), projectID)
+	if err != nil {
+		return "", fmt.Errorf("gagal memuat data acara: %w", err)
 	}
 
-	if !strings.HasSuffix(strings.ToLower(targetPath), ".xlsx") {
-		targetPath += ".xlsx"
+	// 1. Tentukan folder acara bersatu dengan folder sertifikat (Tempat - Alamat - Tanggal)
+	exportDir := filesystem.EventExportDirectory(proj.EventLocation, proj.EventAddress, proj.EventDate, proj.Name)
+	if err := os.MkdirAll(exportDir, 0755); err != nil {
+		return "", fmt.Errorf("gagal membuat folder acara di '%s': %w", exportDir, err)
 	}
 
+	// 2. Tentukan nama berkas Excel
+	fileName := "Data_Penerima.xlsx"
+	if len(recipientIDs) > 0 {
+		fileName = "Data_Penerima_Pilihan.xlsx"
+	}
+	targetPath := filepath.Join(exportDir, fileName)
+
+	// 3. Ekspor data ke file Excel
 	return a.RecipientService.ExportRecipientsToExcel(context.Background(), projectID, recipientIDs, targetPath)
 }
 
@@ -389,16 +364,7 @@ func (a *App) OpenFile(filePath string) error {
 		return fmt.Errorf("berkas tidak ditemukan di '%s': file mungkin telah dipindahkan atau dihapus", filePath)
 	}
 
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", filePath)
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", filePath)
-	default:
-		cmd = exec.Command("xdg-open", filePath)
-	}
-	return cmd.Start()
+	return openFileNative(filePath)
 }
 
 func (a *App) OpenDirectory(dirPath string) error {
@@ -411,16 +377,7 @@ func (a *App) OpenDirectory(dirPath string) error {
 		dirPath = filepath.Dir(dirPath)
 	}
 
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", dirPath)
-	case "windows":
-		cmd = exec.Command("explorer", dirPath)
-	default:
-		cmd = exec.Command("xdg-open", dirPath)
-	}
-	return cmd.Start()
+	return openDirectoryNative(dirPath)
 }
 
 // SelectOutputDirectory opens a native directory picker dialog for certificate exports.
@@ -443,6 +400,15 @@ func (a *App) SelectOutputDirectory() (string, error) {
 		return "", err
 	}
 	return selectedPath, nil
+}
+
+// GetProjectExportDirectory returns the unified export directory for an event (Tempat - Alamat - Tanggal).
+func (a *App) GetProjectExportDirectory(projectID string) (string, error) {
+	proj, err := a.ProjectService.GetProject(context.Background(), projectID)
+	if err != nil {
+		return filesystem.DefaultExportDirectory("Acara"), err
+	}
+	return filesystem.EventExportDirectory(proj.EventLocation, proj.EventAddress, proj.EventDate, proj.Name), nil
 }
 
 // GetDefaultExportDirectory returns the user-friendly default export directory.

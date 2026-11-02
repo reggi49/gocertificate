@@ -329,10 +329,16 @@ func DefaultExportDirectory(projectName string) string {
 	}
 
 	if projectName != "" {
-		cleanProject := SanitizeFilename(projectName)
+		cleanProject := SanitizeFolderName(projectName)
 		if cleanProject != "" {
 			return filepath.Join(baseDir, cleanProject)
 		}
 	}
 	return baseDir
+}
+
+// EventExportDirectory returns the output directory for an event formatted as "Tempat - Alamat - Tanggal".
+func EventExportDirectory(location string, address string, eventDate string, fallback string) string {
+	folderName := FormatEventFolderName(location, address, eventDate, fallback)
+	return DefaultExportDirectory(folderName)
 }

@@ -5,6 +5,7 @@ import {
   Plus,
   Upload,
   FileSpreadsheet,
+  FolderOpen,
   Trash2,
   Edit2,
   ChevronLeft,
@@ -51,7 +52,7 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
 
   // Export Excel states
   const [isExporting, setIsExporting] = useState(false);
-  const [exportNotice, setExportNotice] = useState<{ path: string; count: number } | null>(null);
+  const [exportNotice, setExportNotice] = useState<{ path: string; folderPath: string; count: number } | null>(null);
 
   const loadRecipients = useCallback(async () => {
     if (!activeProject) return;
@@ -165,8 +166,9 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
       const exportedCount = exportIds.length > 0 ? exportIds.length : total;
       const exportedPath = await client.exportRecipientsToExcel(activeProject.id, exportIds);
       if (exportedPath) {
-        setExportNotice({ path: exportedPath, count: exportedCount });
-        setTimeout(() => setExportNotice(null), 8000);
+        const lastSlash = Math.max(exportedPath.lastIndexOf('/'), exportedPath.lastIndexOf('\\'));
+        const folderPath = lastSlash > 0 ? exportedPath.substring(0, lastSlash) : exportedPath;
+        setExportNotice({ path: exportedPath, folderPath, count: exportedCount });
       }
     } catch (err: any) {
       console.error('Failed to export recipients to excel:', err);
@@ -221,33 +223,50 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
 
       {/* Export Success Notification Banner */}
       {exportNotice && (
-        <div className="flex items-center justify-between gap-3 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs shadow-xs animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div className="truncate">
-              <span className="font-semibold">Berhasil mengekspor {exportNotice.count} data penerima: </span>
-              <span
-                className="font-mono text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded text-[11px] truncate inline-block max-w-[320px] align-bottom"
-                title={exportNotice.path}
+        <div className="p-4 bg-emerald-50/90 border border-emerald-200 text-emerald-900 rounded-2xl text-xs shadow-xs animate-in fade-in duration-200 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-bold text-emerald-900 text-sm">
+                  Berhasil Mengekspor {exportNotice.count} Data Penerima
+                </p>
+                <p className="text-emerald-700 text-xs">
+                  Berkas Excel telah disatukan di folder sertifikat sesuai acara:
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => client.openFile(exportNotice.path)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs shadow-xs transition cursor-pointer"
+                title="Buka berkas Excel (.xlsx)"
               >
-                {exportNotice.path}
-              </span>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Buka Berkas
+              </button>
+              <button
+                onClick={() => client.openDirectory(exportNotice.folderPath)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold rounded-xl text-xs shadow-2xs transition cursor-pointer"
+                title="Buka folder penyimpanan di File Explorer / Finder"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-emerald-700" />
+                Buka Folder
+              </button>
+              <button
+                onClick={() => setExportNotice(null)}
+                className="text-emerald-500 hover:text-emerald-800 p-1.5 rounded-lg hover:bg-emerald-100 transition cursor-pointer ml-1"
+                title="Tutup notifikasi"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => client.openFile(exportNotice.path)}
-              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs shadow-xs transition cursor-pointer"
-            >
-              Buka Berkas
-            </button>
-            <button
-              onClick={() => setExportNotice(null)}
-              className="text-emerald-500 hover:text-emerald-700 px-1 py-0.5 rounded-md transition text-base leading-none font-bold cursor-pointer"
-              title="Tutup notifikasi"
-            >
-              &times;
-            </button>
+
+          {/* Full Path Information Box - Lengkap tanpa terpotong '...' */}
+          <div className="bg-white border border-emerald-200/90 rounded-xl px-3.5 py-2 font-mono text-[11px] text-emerald-900 select-all break-all shadow-2xs">
+            {exportNotice.path}
           </div>
         </div>
       )}
