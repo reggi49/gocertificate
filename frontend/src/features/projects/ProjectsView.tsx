@@ -49,6 +49,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
   // Active menu dropdown state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+  const activeCount = useMemo(() => projects.filter((p) => !p.isArchived).length, [projects]);
+  const archivedCount = useMemo(() => projects.filter((p) => p.isArchived).length, [projects]);
+
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
       // Filter tab
@@ -101,7 +104,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Aktif
+            Aktif ({activeCount})
           </button>
           <button
             onClick={() => setFilter('all')}
@@ -121,7 +124,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Arsip
+            Arsip ({archivedCount})
           </button>
         </div>
 
@@ -299,7 +302,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                     )}
                     {isActive && (
                       <span className="text-[10px] font-semibold uppercase tracking-wider bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-200/60">
-                        Aktif
+                        Sedang Dibuka
                       </span>
                     )}
                   </div>

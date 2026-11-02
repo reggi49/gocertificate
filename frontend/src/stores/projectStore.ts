@@ -179,6 +179,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         recentProjects: archive
           ? state.recentProjects.filter((p) => p.id !== id)
           : state.recentProjects,
+        activeProject:
+          state.activeProject?.id === id
+            ? ({ ...state.activeProject, isArchived: archive } as Project)
+            : state.activeProject,
         loading: false,
       }));
       await get().loadStorageInfo();

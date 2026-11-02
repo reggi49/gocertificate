@@ -43,6 +43,10 @@ describe('useProjectStore', () => {
       .projects.find((p) => p.id === created!.id);
     expect(activeProjectInList?.isArchived).toBe(true);
 
+    // Also test archiving the currently active project
+    await store.archiveProject(duplicated!.id, true);
+    expect(useProjectStore.getState().activeProject?.isArchived).toBe(true);
+
     // 5. Delete project
     await store.deleteProject(created!.id);
     expect(useProjectStore.getState().projects.length).toBe(1);
