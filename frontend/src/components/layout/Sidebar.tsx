@@ -9,6 +9,7 @@ import {
   FolderGit2,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
+import appLogo from '../../assets/appicon.png';
 
 export type NavItem =
   | 'dashboard'
@@ -39,9 +40,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 select-none">
       {/* Brand Header */}
       <div className="h-16 flex items-center px-6 gap-3 border-b border-slate-800">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-md">
-          CG
-        </div>
+        <img
+          src={appLogo}
+          alt="Certificate Generator Janaiz"
+          className="w-8 h-8 rounded-lg object-cover shadow-md"
+        />
         <div>
           <h1 className="text-sm font-bold text-white tracking-wide leading-tight">
             Certificate

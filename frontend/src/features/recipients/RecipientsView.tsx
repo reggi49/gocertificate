@@ -4,6 +4,7 @@ import {
   Search,
   Plus,
   Upload,
+  FileSpreadsheet,
   Trash2,
   Edit2,
   ChevronLeft,
@@ -12,6 +13,8 @@ import {
   Sparkles,
   Printer,
   AlertTriangle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ImportWizardModal } from './ImportWizardModal';
@@ -45,6 +48,10 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
   const [recipientToDelete, setRecipientToDelete] = useState<Recipient | null>(null);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
+
+  // Export Excel states
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<{ path: string; count: number } | null>(null);
 
   const loadRecipients = useCallback(async () => {
     if (!activeProject) return;
@@ -150,6 +157,23 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
     setIsBatchModalOpen(true);
   };
 
+  const handleExportExcel = async () => {
+    if (!activeProject || total === 0) return;
+    setIsExporting(true);
+    try {
+      const exportedPath = await client.exportRecipientsToExcel(activeProject.id);
+      if (exportedPath) {
+        setExportNotice({ path: exportedPath, count: total });
+        setTimeout(() => setExportNotice(null), 8000);
+      }
+    } catch (err: any) {
+      console.error('Failed to export recipients to excel:', err);
+      alert('Gagal mengekspor data penerima: ' + (err.message || 'Kesalahan tidak diketahui'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!activeProject) {
     return (
       <div className="py-20 text-center text-slate-500 text-sm">
@@ -176,6 +200,20 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleExportExcel}
+            disabled={isExporting || total === 0}
+            title={total === 0 ? 'Belum ada data penerima untuk diekspor' : 'Export data penerima ke file Excel (.xlsx)'}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl shadow-2xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            )}
+            {isExporting ? 'Mengekspor...' : 'Export Excel'}
+          </button>
+
+          <button
             onClick={() => setIsCreateOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-2xs transition cursor-pointer"
           >
@@ -192,6 +230,39 @@ export const RecipientsView: React.FC<RecipientsViewProps> = ({ onNavigateToHist
           </button>
         </div>
       </div>
+
+      {/* Export Success Notification Banner */}
+      {exportNotice && (
+        <div className="flex items-center justify-between gap-3 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="truncate">
+              <span className="font-semibold">Berhasil mengekspor {exportNotice.count} data penerima: </span>
+              <span
+                className="font-mono text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded text-[11px] truncate inline-block max-w-[320px] align-bottom"
+                title={exportNotice.path}
+              >
+                {exportNotice.path}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => client.openFile(exportNotice.path)}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs shadow-xs transition cursor-pointer"
+            >
+              Buka Berkas
+            </button>
+            <button
+              onClick={() => setExportNotice(null)}
+              className="text-emerald-500 hover:text-emerald-700 px-1 py-0.5 rounded-md transition text-base leading-none font-bold cursor-pointer"
+              title="Tutup notifikasi"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search Bar & Bulk Actions Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">

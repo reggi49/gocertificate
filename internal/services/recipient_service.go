@@ -18,6 +18,7 @@ import (
 	"certificate-generator/internal/storage/filesystem"
 
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 )
 
 // RecipientService coordinates recipient data import, validation, and CRUD operations.
@@ -436,6 +437,151 @@ func (s *RecipientService) CountRecipients(ctx context.Context, projectID string
 		return 0, domain.ErrInvalidProjectID
 	}
 	return s.repo.Count(ctx, projectID)
+}
+
+// ExportRecipientsToExcel exports all recipients for a project into a formatted Excel (.xlsx) file.
+func (s *RecipientService) ExportRecipientsToExcel(ctx context.Context, projectID string, outputPath string) (string, error) {
+	if err := filesystem.ValidateID(projectID); err != nil {
+		return "", domain.ErrInvalidProjectID
+	}
+
+	proj, err := s.projectRepo.GetByID(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("gagal memuat data acara: %w", err)
+	}
+
+	recipients, err := s.repo.GetAllByProject(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("gagal memuat daftar penerima: %w", err)
+	}
+
+	f := excelize.NewFile()
+	defer func() {
+		_ = f.Close()
+	}()
+
+	sheetName := "Data Penerima"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{
+		"No",
+		"Nama Lengkap",
+		"No. Sertifikat",
+		"Tanggal Acara",
+		"Tempat",
+		"Alamat",
+		"Organisasi / Instansi",
+		"Email",
+		"Tanggal Ditambahkan",
+	}
+
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "#FFFFFF",
+			Size:  11,
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#1E3A8A"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+			WrapText:   true,
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "#D1D5DB", Style: 1},
+			{Type: "top", Color: "#D1D5DB", Style: 1},
+			{Type: "bottom", Color: "#D1D5DB", Style: 1},
+			{Type: "right", Color: "#D1D5DB", Style: 1},
+		},
+	})
+
+	dataStyle, _ := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "left", Color: "#E5E7EB", Style: 1},
+			{Type: "top", Color: "#E5E7EB", Style: 1},
+			{Type: "bottom", Color: "#E5E7EB", Style: 1},
+			{Type: "right", Color: "#E5E7EB", Style: 1},
+		},
+		Alignment: &excelize.Alignment{
+			Vertical: "center",
+		},
+	})
+
+	centerStyle, _ := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "left", Color: "#E5E7EB", Style: 1},
+			{Type: "top", Color: "#E5E7EB", Style: 1},
+			{Type: "bottom", Color: "#E5E7EB", Style: 1},
+			{Type: "right", Color: "#E5E7EB", Style: 1},
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	})
+
+	_ = f.SetRowHeight(sheetName, 1, 28)
+
+	for colIdx, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		_ = f.SetCellValue(sheetName, cell, header)
+		_ = f.SetCellStyle(sheetName, cell, cell, headerStyle)
+	}
+
+	for i, r := range recipients {
+		row := i + 2
+		_ = f.SetRowHeight(sheetName, row, 22)
+
+		eventDate := r.IssueDate
+		if eventDate == "" {
+			eventDate = proj.EventDate
+		}
+
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), i+1)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), r.FullName)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), r.CertificateID)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), eventDate)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), proj.EventLocation)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), proj.EventAddress)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), r.Organization)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), r.Email)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), r.CreatedAt.Format("2006-01-02 15:04"))
+
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), centerStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), centerStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("D%d", row), fmt.Sprintf("D%d", row), centerStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", row), fmt.Sprintf("E%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("F%d", row), fmt.Sprintf("F%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("G%d", row), fmt.Sprintf("G%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("H%d", row), fmt.Sprintf("H%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("I%d", row), fmt.Sprintf("I%d", row), centerStyle)
+	}
+
+	_ = f.SetColWidth(sheetName, "A", "A", 6)
+	_ = f.SetColWidth(sheetName, "B", "B", 30)
+	_ = f.SetColWidth(sheetName, "C", "C", 20)
+	_ = f.SetColWidth(sheetName, "D", "D", 16)
+	_ = f.SetColWidth(sheetName, "E", "E", 25)
+	_ = f.SetColWidth(sheetName, "F", "F", 35)
+	_ = f.SetColWidth(sheetName, "G", "G", 25)
+	_ = f.SetColWidth(sheetName, "H", "H", 25)
+	_ = f.SetColWidth(sheetName, "I", "I", 20)
+
+	dir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("gagal membuat folder output: %w", err)
+	}
+
+	if err := f.SaveAs(outputPath); err != nil {
+		return "", fmt.Errorf("gagal menyimpan berkas excel: %w", err)
+	}
+
+	return outputPath, nil
 }
 
 // Helpers

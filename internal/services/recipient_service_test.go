@@ -229,4 +229,26 @@ func TestRecipientServiceImportAndCRUD(t *testing.T) {
 	if xlsxImportSummary.ImportedRows != 1000 {
 		t.Errorf("Expected 1000 imported rows from XLSX, got %d", xlsxImportSummary.ImportedRows)
 	}
+
+	// 10. Test ExportRecipientsToExcel
+	exportXlsxPath := filepath.Join(t.TempDir(), "exported_recipients.xlsx")
+	outPath, err := recSvc.ExportRecipientsToExcel(ctx, proj.ID, exportXlsxPath)
+	if err != nil {
+		t.Fatalf("ExportRecipientsToExcel failed: %v", err)
+	}
+	if outPath != exportXlsxPath {
+		t.Errorf("Expected outPath %s, got %s", exportXlsxPath, outPath)
+	}
+	xlFile, err := excelize.OpenFile(exportXlsxPath)
+	if err != nil {
+		t.Fatalf("Failed to open exported Excel: %v", err)
+	}
+	defer xlFile.Close()
+	rows, err := xlFile.GetRows("Data Penerima")
+	if err != nil {
+		t.Fatalf("Failed to read exported sheet: %v", err)
+	}
+	if len(rows) != 1001 {
+		t.Errorf("Expected 1001 rows in exported Excel (1 header + 1000 data rows), got %d", len(rows))
+	}
 }

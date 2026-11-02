@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"certificate-generator/internal/domain"
@@ -279,6 +280,47 @@ func (a *App) ListRecipients(filter domain.RecipientFilter) (*domain.PaginatedRe
 
 func (a *App) CountRecipients(projectID string) (int, error) {
 	return a.RecipientService.CountRecipients(context.Background(), projectID)
+}
+
+func (a *App) ExportRecipientsToExcel(projectID string, targetPath string) (string, error) {
+	if targetPath == "" {
+		proj, err := a.ProjectService.GetProject(context.Background(), projectID)
+		defaultName := "Data_Penerima.xlsx"
+		if err == nil && proj != nil && proj.Name != "" {
+			sanitized := strings.ReplaceAll(proj.Name, "/", "_")
+			sanitized = strings.ReplaceAll(sanitized, "\\", "_")
+			defaultName = fmt.Sprintf("Data_Penerima_%s.xlsx", sanitized)
+		}
+
+		app := wailsApp.Get()
+		if app != nil && app.Dialog != nil {
+			dialog := app.Dialog.SaveFileWithOptions(&wailsApp.SaveFileDialogOptions{
+				Title:      "Simpan Berkas Data Penerima Excel",
+				Filename:   defaultName,
+				ButtonText: "Simpan Excel",
+				Filters: []wailsApp.FileFilter{
+					{DisplayName: "Excel Spreadsheet (*.xlsx)", Pattern: "*.xlsx"},
+				},
+			})
+			selectedPath, err := dialog.PromptForSingleSelection()
+			if err != nil {
+				return "", err
+			}
+			if selectedPath == "" {
+				return "", nil
+			}
+			targetPath = selectedPath
+		} else {
+			home, _ := os.UserHomeDir()
+			targetPath = filepath.Join(home, "Downloads", defaultName)
+		}
+	}
+
+	if !strings.HasSuffix(strings.ToLower(targetPath), ".xlsx") {
+		targetPath += ".xlsx"
+	}
+
+	return a.RecipientService.ExportRecipientsToExcel(context.Background(), projectID, targetPath)
 }
 
 // Batch Generation Job Service Wrappers for Wails Service Binding
