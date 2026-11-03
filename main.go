@@ -13,6 +13,9 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed appicon.png
+var appIcon []byte
+
 func main() {
 	appInstance, err := app.NewApp(app.Config{
 		FontDir: "assets/fonts",
@@ -25,6 +28,7 @@ func main() {
 	wailsApp := application.New(application.Options{
 		Name:        "Certificate Generator",
 		Description: "Professional Desktop Certificate Generator",
+		Icon:        appIcon,
 		Services: []application.Service{
 			application.NewService(appInstance),
 		},
