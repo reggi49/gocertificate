@@ -115,13 +115,14 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl space-y-8 animate-in fade-in duration-200">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Pengaturan Aplikasi</h2>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Kelola preferensi antarmuka, bahasa, penyimpanan, autosave, serta cadangan (backup & restore).
-        </p>
-      </div>
+    <div className="w-full min-h-[calc(100vh-8rem)] flex flex-col justify-between animate-in fade-in duration-200">
+      <div className="max-w-2xl space-y-8">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Pengaturan Aplikasi</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Kelola preferensi antarmuka, bahasa, penyimpanan, autosave, serta cadangan (backup & restore).
+          </p>
+        </div>
 
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
         {savedSuccess && (
@@ -364,6 +365,14 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+      </div>
+
+      {/* Trademark / Watermark Subtle Footer */}
+      <div className="pt-8 pb-1 flex justify-end">
+        <p className="text-[11px] text-slate-400/50 font-light select-none tracking-wider">
+          Developed by Muhamad Reggi Dengan Izin Allah
+        </p>
       </div>
     </div>
   );
