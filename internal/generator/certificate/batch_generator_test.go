@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -171,8 +172,71 @@ func TestBatchGenerationSingleCertificate(t *testing.T) {
 	}
 	defer zr.Close()
 
-	if len(zr.File) != 2 { // 1 PDF + 1 export-summary.csv
+	if len(zr.File) != 2 { // 1 PDF + 1 Excel Data-Penerima-*.xlsx
 		t.Errorf("Expected 2 files in ZIP, found %d", len(zr.File))
+	}
+
+	hasExcel := false
+	for _, f := range zr.File {
+		if strings.HasSuffix(f.Name, ".csv") {
+			t.Errorf("Unexpected CSV file found in ZIP: %s", f.Name)
+		}
+		if strings.HasPrefix(f.Name, "Data-Penerima-") && strings.HasSuffix(f.Name, ".xlsx") {
+			hasExcel = true
+		}
+	}
+	if !hasExcel {
+		t.Errorf("Data-Penerima-*.xlsx missing in ZIP archive")
+	}
+}
+
+func TestBatchGenerationIndividualPdfAndExcelOutput(t *testing.T) {
+	generator, proj, tmpl, _, _, cleanup := setupBatchTestEnv(t, 2)
+	defer cleanup()
+
+	ctx := context.Background()
+	cfg := domain.BatchConfig{
+		ProjectID:   proj.ID,
+		TemplateID:  tmpl.ID,
+		Concurrency: 1,
+		ExportZip:   false, // Individual PDF mode
+	}
+
+	job, err := generator.ExecuteBatch(ctx, cfg, nil)
+	if err != nil {
+		t.Fatalf("ExecuteBatch failed: %v", err)
+	}
+
+	if job.Status != domain.JobStatusCompleted || job.CompletedCount != 2 {
+		t.Fatalf("Job not completed: %+v", job)
+	}
+
+	// In non-zip mode, job.OutputPath is the output directory
+	entries, err := os.ReadDir(job.OutputPath)
+	if err != nil {
+		t.Fatalf("Failed to read output dir %s: %v", job.OutputPath, err)
+	}
+
+	hasExcel := false
+	pdfCount := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasSuffix(name, ".pdf") {
+			pdfCount++
+		}
+		if strings.HasPrefix(name, "Data-Penerima-") && strings.HasSuffix(name, ".xlsx") {
+			hasExcel = true
+		}
+		if strings.HasSuffix(name, ".csv") {
+			t.Errorf("Unexpected CSV file found in output dir: %s", name)
+		}
+	}
+
+	if pdfCount != 2 {
+		t.Errorf("Expected 2 PDFs in output dir, found %d", pdfCount)
+	}
+	if !hasExcel {
+		t.Errorf("Data-Penerima-*.xlsx missing in output dir")
 	}
 }
 
@@ -217,21 +281,23 @@ func TestBatchGeneration100CertificatesAndZipIntegrity(t *testing.T) {
 	}
 	defer zr.Close()
 
-	// 100 PDFs + 1 export-summary.csv = 101 entries
+	// 100 PDFs + 1 Excel Data-Penerima-*.xlsx = 101 entries
 	if len(zr.File) != 101 {
 		t.Errorf("Expected 101 entries in ZIP archive, found %d", len(zr.File))
 	}
 
-	// Verify export-summary.csv is readable
-	hasSummary := false
+	// Verify Excel is present and no CSV exists
+	hasExcelIn100 := false
 	for _, f := range zr.File {
-		if f.Name == "export-summary.csv" {
-			hasSummary = true
-			break
+		if strings.HasSuffix(f.Name, ".csv") {
+			t.Errorf("Unexpected CSV file found in ZIP archive: %s", f.Name)
+		}
+		if strings.HasPrefix(f.Name, "Data-Penerima-") && strings.HasSuffix(f.Name, ".xlsx") {
+			hasExcelIn100 = true
 		}
 	}
-	if !hasSummary {
-		t.Errorf("export-summary.csv missing in ZIP archive")
+	if !hasExcelIn100 {
+		t.Errorf("Data-Penerima-*.xlsx missing in ZIP archive")
 	}
 }
 

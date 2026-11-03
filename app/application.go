@@ -291,10 +291,11 @@ func (a *App) ExportRecipientsToExcel(projectID string, recipientIDs []string) (
 		return "", fmt.Errorf("gagal membuat folder acara di '%s': %w", exportDir, err)
 	}
 
-	// 2. Tentukan nama berkas Excel
-	fileName := "Data_Penerima.xlsx"
+	// 2. Tentukan nama berkas Excel: Data-Penerima-[Tempat] - [Alamat] - [Tanggal].xlsx
+	folderName := filesystem.FormatEventFolderName(proj.EventLocation, proj.EventAddress, proj.EventDate, proj.Name)
+	fileName := fmt.Sprintf("Data-Penerima-%s.xlsx", folderName)
 	if len(recipientIDs) > 0 {
-		fileName = "Data_Penerima_Pilihan.xlsx"
+		fileName = fmt.Sprintf("Data-Penerima-%s-Pilihan.xlsx", folderName)
 	}
 	targetPath := filepath.Join(exportDir, fileName)
 

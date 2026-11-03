@@ -61,3 +61,4 @@ func openDirectoryNative(dirPath string) error {
 	}
 	return nil
 }
+

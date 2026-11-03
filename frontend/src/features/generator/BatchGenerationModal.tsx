@@ -320,7 +320,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                       onChange={() => setExportZip(false)}
                       className="text-blue-600 focus:ring-blue-500"
                     />
-                    Berkas PDF Individual Langsung ke Folder Proyek (Default)
+                    Berkas PDF Individual + Excel Data Penerima (Default)
                   </label>
                 </div>
                 <div className="flex items-center gap-3">
@@ -332,7 +332,7 @@ export const BatchGenerationModal: React.FC<BatchGenerationModalProps> = ({
                       onChange={() => setExportZip(true)}
                       className="text-blue-600 focus:ring-blue-500"
                     />
-                    Paket Arsip ZIP (.zip) + export-summary.csv
+                    Paket Arsip ZIP (.zip) Berisi PDF + Excel Data Penerima
                   </label>
                 </div>
               </div>

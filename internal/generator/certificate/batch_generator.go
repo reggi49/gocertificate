@@ -3,7 +3,6 @@ package certificate
 import (
 	"archive/zip"
 	"context"
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"certificate-generator/internal/domain"
+	excelexport "certificate-generator/internal/exporter/excel"
 	"certificate-generator/internal/renderer/pdf"
 	"certificate-generator/internal/repository/sqlite"
 	"certificate-generator/internal/storage/filesystem"
@@ -287,13 +287,6 @@ func (g *BatchGenerator) ExecuteBatch(
 
 	var completedCounter int32
 	var failedCounter int32
-	var summaryRows [][]string
-	var summaryMu sync.Mutex
-
-	summaryRows = append(summaryRows, []string{
-		"Recipient ID", "Certificate ID", "Full Name", "Output File", "Status", "Error Message",
-	})
-
 	var wg sync.WaitGroup
 	isCancelled := false
 
@@ -401,17 +394,6 @@ func (g *BatchGenerator) ExecuteBatch(
 				// Update item record in SQLite
 				_ = g.jobRepo.UpdateJobItem(jobCtx, task.item.ID, itemStatus, cleanFileName, errMsg)
 
-				summaryMu.Lock()
-				summaryRows = append(summaryRows, []string{
-					task.rec.ID,
-					task.rec.CertificateID,
-					recipientName,
-					cleanFileName,
-					itemStatus,
-					errMsg,
-				})
-				summaryMu.Unlock()
-
 				// Update Job progress in SQLite periodically
 				cCount := int(atomic.LoadInt32(&completedCounter))
 				fCount := int(atomic.LoadInt32(&failedCounter))
@@ -458,14 +440,24 @@ func (g *BatchGenerator) ExecuteBatch(
 		return g.jobRepo.GetJobByID(bgCtx, jobID)
 	}
 
-	// 9. Write export-summary.csv in temp dir
-	summaryCSVPath := filepath.Join(tempBatchDir, "export-summary.csv")
-	summaryFile, err := os.Create(summaryCSVPath)
-	if err == nil {
-		w := csv.NewWriter(summaryFile)
-		_ = w.WriteAll(summaryRows)
-		w.Flush()
-		_ = summaryFile.Close()
+	// 9. Write Excel Data Penerima file in temp dir & copy to final output directory
+	var loc, addr, dt, fallback string
+	if proj != nil {
+		loc = proj.EventLocation
+		addr = proj.EventAddress
+		dt = proj.EventDate
+		fallback = proj.Name
+	}
+	eventFolder := filesystem.FormatEventFolderName(loc, addr, dt, fallback)
+	excelFileName := fmt.Sprintf("Data-Penerima-%s.xlsx", eventFolder)
+
+	tempExcelPath := filepath.Join(tempBatchDir, excelFileName)
+	if err := excelexport.ExportRecipientsToExcelFile(proj, recipients, tempExcelPath); err != nil {
+		g.logger.Warn("gagal membuat file excel data penerima di batch", "error", err)
+	} else {
+		// Always copy Excel file to finalOutputDir so it is available alongside PDFs or ZIP
+		finalExcelPath := filepath.Join(finalOutputDir, excelFileName)
+		_ = copyFile(tempExcelPath, finalExcelPath)
 	}
 
 	// 10. Streaming ZIP Archive or Directory Finalization
