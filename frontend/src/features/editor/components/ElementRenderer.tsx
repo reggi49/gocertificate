@@ -268,6 +268,8 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
         <KonvaText
           {...commonProps}
           width={widthPx > 0 ? widthPx : undefined}
+          height={heightPx > 0 ? heightPx : undefined}
+          verticalAlign={element.properties.verticalAlignment || 'top'}
           text={renderedText}
           fontSize={fontSizePx}
           fontFamily={element.properties.fontFamily || 'LiberationSerif'}
