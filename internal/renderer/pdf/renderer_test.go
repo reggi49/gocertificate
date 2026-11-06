@@ -495,15 +495,15 @@ func TestDefaultJanaizTemplate(t *testing.T) {
 				ID:       "el-event-details",
 				Type:     domain.ElementTypeText,
 				XMm:      15,
-				YMm:      205.6,
+				YMm:      209.6,
 				WidthMm:  180,
-				HeightMm: 28,
+				HeightMm: 35,
 				Visible:  true,
 				Locked:   false,
 				ZIndex:   2,
 				Opacity:  1.0,
 				Properties: domain.ElementProperties{
-					Text:              "PADA TANGGAL {{issue_date}}\nBERTEMPAT DI {{event_location}}\n{{event_address}}",
+					Text:              "PADA TANGGAL {{issue_date}}\nBERTEMPAT DI {{event_location}}\n{{event_address}}\n{{event_city}}",
 					FontFamily:        "Trajan Pro Bold",
 					FontSizePt:        12,
 					FontWeight:        700,
@@ -519,9 +519,10 @@ func TestDefaultJanaizTemplate(t *testing.T) {
 
 	variables := map[string]string{
 		"recipient_name": "Maharani Syahputra",
-		"issue_date":     "23 OKTOBER 2026",
-		"event_location": "YAYASAN JANAIZ",
-		"event_address":  "SEDAYU CITY BLOK C NO.03 • JAKARTA UTARA",
+		"issue_date":     "08 DESEMBER 2026",
+		"event_location": "MASJID ISTIQLAL",
+		"event_address":  "JL. TAMAN WIJAYA KUSUMA • PASAR BARU",
+		"event_city":     "KECAMATAN SAWAH BESAR • JAKARTA PUSAT",
 	}
 
 	assetDir := filepath.Join("..", "..", "..", "assets")

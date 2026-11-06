@@ -122,8 +122,8 @@ export const AppShell: React.FC = () => {
       <CreateProjectModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onSubmit={async (name, desc, date, loc, addr) => {
-          await createProject(name, desc, date, loc, addr);
+        onSubmit={async (name, desc, date, loc, addr, city) => {
+          await createProject(name, desc, date, loc, addr, city);
         }}
       />
     </div>

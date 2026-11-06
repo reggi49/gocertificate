@@ -155,12 +155,13 @@ func (g *BatchGenerator) ExecuteBatch(
 		}
 	}
 
-	var projEventName, projEventDate, projLocation, projAddress string
+	var projEventName, projEventDate, projLocation, projAddress, projCity string
 	if proj != nil {
 		projEventName = proj.Name
 		projEventDate = formatIndonesianDate(proj.EventDate)
 		projLocation = proj.EventLocation
 		projAddress = proj.EventAddress
+		projCity = proj.EventCity
 	}
 
 	// 2. Fetch recipients
@@ -326,6 +327,7 @@ func (g *BatchGenerator) ExecuteBatch(
 				// Auto-format event venue, address, and date to UPPERCASE
 				locationUpper := strings.ToUpper(strings.TrimSpace(projLocation))
 				addressUpper := strings.ToUpper(strings.TrimSpace(projAddress))
+				cityUpper := strings.ToUpper(strings.TrimSpace(projCity))
 				eventDateUpper := strings.ToUpper(strings.TrimSpace(eventDate))
 				eventNameUpper := strings.ToUpper(strings.TrimSpace(eventName))
 
@@ -347,6 +349,13 @@ func (g *BatchGenerator) ExecuteBatch(
 					"event_address":  addressUpper,
 					"address":        addressUpper,
 					"alamat":         addressUpper,
+					"event_city":     cityUpper,
+					"city":           cityUpper,
+					"kota":           cityUpper,
+					"kecamatan":      cityUpper,
+					"kecamatan_kota": cityUpper,
+					"event_address2": cityUpper,
+					"alamat2":        cityUpper,
 				}
 
 				// Unmarshal custom fields if any (highest precedence)

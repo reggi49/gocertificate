@@ -23,6 +23,7 @@ type Project struct {
 	EventDate     string    `json:"eventDate"`
 	EventLocation string    `json:"eventLocation"`
 	EventAddress  string    `json:"eventAddress"`
+	EventCity     string    `json:"eventCity"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 	IsArchived    bool      `json:"isArchived"`
@@ -37,6 +38,7 @@ type ProjectManifest struct {
 	EventDate     string `json:"eventDate"`
 	EventLocation string `json:"eventLocation"`
 	EventAddress  string `json:"eventAddress"`
+	EventCity     string `json:"eventCity"`
 	CreatedAt     string `json:"createdAt"`
 	UpdatedAt     string `json:"updatedAt"`
 }
@@ -48,6 +50,7 @@ type CreateProjectInput struct {
 	EventDate     string `json:"eventDate"`
 	EventLocation string `json:"eventLocation"`
 	EventAddress  string `json:"eventAddress"`
+	EventCity     string `json:"eventCity"`
 }
 
 // UpdateProjectInput holds validated input for updating a project.
@@ -57,6 +60,7 @@ type UpdateProjectInput struct {
 	EventDate     string `json:"eventDate"`
 	EventLocation string `json:"eventLocation"`
 	EventAddress  string `json:"eventAddress"`
+	EventCity     string `json:"eventCity"`
 }
 
 // DuplicateProjectInput holds input for cloning an existing project.
@@ -99,6 +103,7 @@ func ValidateCreateProjectInput(input CreateProjectInput) (CreateProjectInput, e
 		EventDate:     strings.TrimSpace(input.EventDate),
 		EventLocation: strings.TrimSpace(input.EventLocation),
 		EventAddress:  strings.TrimSpace(input.EventAddress),
+		EventCity:     strings.TrimSpace(input.EventCity),
 	}, nil
 }
 
@@ -114,5 +119,6 @@ func ValidateUpdateProjectInput(input UpdateProjectInput) (UpdateProjectInput, e
 		EventDate:     strings.TrimSpace(input.EventDate),
 		EventLocation: strings.TrimSpace(input.EventLocation),
 		EventAddress:  strings.TrimSpace(input.EventAddress),
+		EventCity:     strings.TrimSpace(input.EventCity),
 	}, nil
 }

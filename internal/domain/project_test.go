@@ -34,6 +34,7 @@ func TestProjectValidation(t *testing.T) {
 		EventDate:     " 2026-11-15 ",
 		EventLocation: " Gedung Sasana Budaya ",
 		EventAddress:  " Jl. Ganesha No. 10, Bandung ",
+		EventCity:     " Coblong, Kota Bandung ",
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error for valid input: %v", err)
@@ -52,6 +53,9 @@ func TestProjectValidation(t *testing.T) {
 	}
 	if clean.EventAddress != "Jl. Ganesha No. 10, Bandung" {
 		t.Errorf("Expected trimmed event address, got '%s'", clean.EventAddress)
+	}
+	if clean.EventCity != "Coblong, Kota Bandung" {
+		t.Errorf("Expected trimmed event city, got '%s'", clean.EventCity)
 	}
 
 	// Fallback name to EventLocation when Name is empty

@@ -10,7 +10,8 @@ interface CreateModalProps {
     description: string,
     eventDate?: string,
     eventLocation?: string,
-    eventAddress?: string
+    eventAddress?: string,
+    eventCity?: string
   ) => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
   const [eventDate, setEventDate] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventAddress, setEventAddress] = useState('');
+  const [eventCity, setEventCity] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,12 +39,20 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
       setError('Alamat acara wajib diisi');
       return;
     }
+    if (!eventCity.trim()) {
+      setError('Kecamatan - Kota wajib diisi');
+      return;
+    }
     if (eventLocation.trim().length > 100) {
       setError('Tempat acara tidak boleh lebih dari 100 karakter');
       return;
     }
     if (eventAddress.trim().length > 255) {
       setError('Alamat acara tidak boleh lebih dari 255 karakter');
+      return;
+    }
+    if (eventCity.trim().length > 255) {
+      setError('Kecamatan - Kota tidak boleh lebih dari 255 karakter');
       return;
     }
     setError('');
@@ -54,11 +64,13 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
         '',
         eventDate.trim(),
         eventLocation.trim(),
-        eventAddress.trim()
+        eventAddress.trim(),
+        eventCity.trim()
       );
       setEventDate('');
       setEventLocation('');
       setEventAddress('');
+      setEventCity('');
       onClose();
     } catch (err: any) {
       setError(err.message || 'Gagal membuat acara');
@@ -124,9 +136,23 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
             <input
               type="text"
               required
-              placeholder="Contoh: Jl. Jenderal Sudirman No. 123, Jakarta Pusat"
+              placeholder="Contoh: Jl. Taman Wijaya Kusuma • Pasar Baru"
               value={eventAddress}
               onChange={(e) => setEventAddress(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              Kecamatan - Kota *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Contoh: Kecamatan Sawah Besar • Jakarta Pusat"
+              value={eventCity}
+              onChange={(e) => setEventCity(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

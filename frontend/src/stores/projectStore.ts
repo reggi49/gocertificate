@@ -30,7 +30,8 @@ interface ProjectState {
     description?: string,
     eventDate?: string,
     eventLocation?: string,
-    eventAddress?: string
+    eventAddress?: string,
+    eventCity?: string
   ) => Promise<Project | null>;
   renameProject: (
     id: string,
@@ -99,7 +100,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     description = '',
     eventDate = '',
     eventLocation = '',
-    eventAddress = ''
+    eventAddress = '',
+    eventCity = ''
   ) => {
     set({ loading: true, error: null });
     try {
@@ -109,6 +111,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         eventDate,
         eventLocation,
         eventAddress,
+        eventCity,
       } as any);
       if (created) {
         set((state) => ({

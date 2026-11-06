@@ -16,13 +16,15 @@ describe('useProjectStore', () => {
       'Deskripsi Alpha',
       '2026-12-01',
       'Auditorium',
-      'Jl. Sudirman No. 1'
+      'Jl. Sudirman No. 1',
+      'Kecamatan Tanah Abang • Jakarta Pusat'
     );
     expect(created).not.toBeNull();
     expect(created?.name).toBe('Acara Alpha');
     expect(created?.eventDate).toBe('2026-12-01');
     expect(created?.eventLocation).toBe('Auditorium');
     expect(created?.eventAddress).toBe('Jl. Sudirman No. 1');
+    expect(created?.eventCity).toBe('Kecamatan Tanah Abang • Jakarta Pusat');
     expect(useProjectStore.getState().activeProject?.id).toBe(created?.id);
     expect(useProjectStore.getState().projects.length).toBe(1);
 

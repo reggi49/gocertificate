@@ -36,8 +36,8 @@ func NewProjectRepository(db *sql.DB) *SQLiteProjectRepository {
 // Create inserts a new project record.
 func (r *SQLiteProjectRepository) Create(ctx context.Context, p *domain.Project) error {
 	query := `
-		INSERT INTO projects (id, name, description, event_date, event_location, event_address, created_at, updated_at, is_archived)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO projects (id, name, description, event_date, event_location, event_address, event_city, created_at, updated_at, is_archived)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	isArchivedInt := 0
 	if p.IsArchived {
@@ -47,7 +47,7 @@ func (r *SQLiteProjectRepository) Create(ctx context.Context, p *domain.Project)
 	createdAtStr := p.CreatedAt.UTC().Format(time.RFC3339)
 	updatedAtStr := p.UpdatedAt.UTC().Format(time.RFC3339)
 
-	_, err := r.db.ExecContext(ctx, query, p.ID, p.Name, p.Description, p.EventDate, p.EventLocation, p.EventAddress, createdAtStr, updatedAtStr, isArchivedInt)
+	_, err := r.db.ExecContext(ctx, query, p.ID, p.Name, p.Description, p.EventDate, p.EventLocation, p.EventAddress, p.EventCity, createdAtStr, updatedAtStr, isArchivedInt)
 	if err != nil {
 		return fmt.Errorf("failed to insert project: %w", err)
 	}
@@ -57,12 +57,12 @@ func (r *SQLiteProjectRepository) Create(ctx context.Context, p *domain.Project)
 // GetByID retrieves a project by its primary key ID.
 func (r *SQLiteProjectRepository) GetByID(ctx context.Context, id string) (*domain.Project, error) {
 	query := `
-		SELECT id, name, description, event_date, event_location, event_address, created_at, updated_at, is_archived
+		SELECT id, name, description, event_date, event_location, event_address, event_city, created_at, updated_at, is_archived
 		FROM projects
 		WHERE id = ?
 	`
 	var p domain.Project
-	var desc, eventDate, eventLoc, eventAddr sql.NullString
+	var desc, eventDate, eventLoc, eventAddr, eventCity sql.NullString
 	var createdAtStr, updatedAtStr string
 	var isArchivedInt int
 
@@ -73,6 +73,7 @@ func (r *SQLiteProjectRepository) GetByID(ctx context.Context, id string) (*doma
 		&eventDate,
 		&eventLoc,
 		&eventAddr,
+		&eventCity,
 		&createdAtStr,
 		&updatedAtStr,
 		&isArchivedInt,
@@ -88,6 +89,7 @@ func (r *SQLiteProjectRepository) GetByID(ctx context.Context, id string) (*doma
 	p.EventDate = eventDate.String
 	p.EventLocation = eventLoc.String
 	p.EventAddress = eventAddr.String
+	p.EventCity = eventCity.String
 	p.IsArchived = isArchivedInt == 1
 	p.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 	p.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
@@ -98,12 +100,12 @@ func (r *SQLiteProjectRepository) GetByID(ctx context.Context, id string) (*doma
 // GetByName retrieves a project by its exact name.
 func (r *SQLiteProjectRepository) GetByName(ctx context.Context, name string) (*domain.Project, error) {
 	query := `
-		SELECT id, name, description, event_date, event_location, event_address, created_at, updated_at, is_archived
+		SELECT id, name, description, event_date, event_location, event_address, event_city, created_at, updated_at, is_archived
 		FROM projects
 		WHERE name = ?
 	`
 	var p domain.Project
-	var desc, eventDate, eventLoc, eventAddr sql.NullString
+	var desc, eventDate, eventLoc, eventAddr, eventCity sql.NullString
 	var createdAtStr, updatedAtStr string
 	var isArchivedInt int
 
@@ -114,6 +116,7 @@ func (r *SQLiteProjectRepository) GetByName(ctx context.Context, name string) (*
 		&eventDate,
 		&eventLoc,
 		&eventAddr,
+		&eventCity,
 		&createdAtStr,
 		&updatedAtStr,
 		&isArchivedInt,
@@ -129,6 +132,7 @@ func (r *SQLiteProjectRepository) GetByName(ctx context.Context, name string) (*
 	p.EventDate = eventDate.String
 	p.EventLocation = eventLoc.String
 	p.EventAddress = eventAddr.String
+	p.EventCity = eventCity.String
 	p.IsArchived = isArchivedInt == 1
 	p.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 	p.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
@@ -139,7 +143,7 @@ func (r *SQLiteProjectRepository) GetByName(ctx context.Context, name string) (*
 // List returns projects, optionally including archived projects.
 func (r *SQLiteProjectRepository) List(ctx context.Context, includeArchived bool) ([]domain.Project, error) {
 	query := `
-		SELECT id, name, description, event_date, event_location, event_address, created_at, updated_at, is_archived
+		SELECT id, name, description, event_date, event_location, event_address, event_city, created_at, updated_at, is_archived
 		FROM projects
 	`
 	if !includeArchived {
@@ -156,11 +160,11 @@ func (r *SQLiteProjectRepository) List(ctx context.Context, includeArchived bool
 	var projects []domain.Project
 	for rows.Next() {
 		var p domain.Project
-		var desc, eventDate, eventLoc, eventAddr sql.NullString
+		var desc, eventDate, eventLoc, eventAddr, eventCity sql.NullString
 		var createdAtStr, updatedAtStr string
 		var isArchivedInt int
 
-		if err := rows.Scan(&p.ID, &p.Name, &desc, &eventDate, &eventLoc, &eventAddr, &createdAtStr, &updatedAtStr, &isArchivedInt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &desc, &eventDate, &eventLoc, &eventAddr, &eventCity, &createdAtStr, &updatedAtStr, &isArchivedInt); err != nil {
 			return nil, fmt.Errorf("failed to scan project row: %w", err)
 		}
 
@@ -168,6 +172,7 @@ func (r *SQLiteProjectRepository) List(ctx context.Context, includeArchived bool
 		p.EventDate = eventDate.String
 		p.EventLocation = eventLoc.String
 		p.EventAddress = eventAddr.String
+		p.EventCity = eventCity.String
 		p.IsArchived = isArchivedInt == 1
 		p.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 		p.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
@@ -190,7 +195,7 @@ func (r *SQLiteProjectRepository) Recent(ctx context.Context, limit int) ([]doma
 		limit = 5
 	}
 	query := `
-		SELECT id, name, description, event_date, event_location, event_address, created_at, updated_at, is_archived
+		SELECT id, name, description, event_date, event_location, event_address, event_city, created_at, updated_at, is_archived
 		FROM projects
 		WHERE is_archived = 0
 		ORDER BY updated_at DESC
@@ -205,11 +210,11 @@ func (r *SQLiteProjectRepository) Recent(ctx context.Context, limit int) ([]doma
 	var projects []domain.Project
 	for rows.Next() {
 		var p domain.Project
-		var desc, eventDate, eventLoc, eventAddr sql.NullString
+		var desc, eventDate, eventLoc, eventAddr, eventCity sql.NullString
 		var createdAtStr, updatedAtStr string
 		var isArchivedInt int
 
-		if err := rows.Scan(&p.ID, &p.Name, &desc, &eventDate, &eventLoc, &eventAddr, &createdAtStr, &updatedAtStr, &isArchivedInt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &desc, &eventDate, &eventLoc, &eventAddr, &eventCity, &createdAtStr, &updatedAtStr, &isArchivedInt); err != nil {
 			return nil, fmt.Errorf("failed to scan recent project: %w", err)
 		}
 
@@ -217,6 +222,7 @@ func (r *SQLiteProjectRepository) Recent(ctx context.Context, limit int) ([]doma
 		p.EventDate = eventDate.String
 		p.EventLocation = eventLoc.String
 		p.EventAddress = eventAddr.String
+		p.EventCity = eventCity.String
 		p.IsArchived = isArchivedInt == 1
 		p.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
 		p.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
@@ -233,11 +239,11 @@ func (r *SQLiteProjectRepository) Recent(ctx context.Context, limit int) ([]doma
 func (r *SQLiteProjectRepository) Update(ctx context.Context, p *domain.Project) error {
 	query := `
 		UPDATE projects
-		SET name = ?, description = ?, event_date = ?, event_location = ?, event_address = ?, updated_at = ?
+		SET name = ?, description = ?, event_date = ?, event_location = ?, event_address = ?, event_city = ?, updated_at = ?
 		WHERE id = ?
 	`
 	updatedAtStr := p.UpdatedAt.UTC().Format(time.RFC3339)
-	res, err := r.db.ExecContext(ctx, query, p.Name, p.Description, p.EventDate, p.EventLocation, p.EventAddress, updatedAtStr, p.ID)
+	res, err := r.db.ExecContext(ctx, query, p.Name, p.Description, p.EventDate, p.EventLocation, p.EventAddress, p.EventCity, updatedAtStr, p.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update project: %w", err)
 	}

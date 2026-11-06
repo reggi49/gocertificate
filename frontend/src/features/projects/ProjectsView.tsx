@@ -264,8 +264,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                     </div>
                   </div>
 
-                  {/* Event Details: Date, Location, Address */}
-                  {(p.eventDate || p.eventLocation || p.eventAddress) && (
+                  {/* Event Details: Date, Location, Address, City */}
+                  {(p.eventDate || p.eventLocation || p.eventAddress || p.eventCity) && (
                     <div className="space-y-1 mb-2.5 text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
                       {p.eventDate && (
                         <p className="flex items-center gap-1.5 font-medium text-slate-700">
@@ -283,6 +283,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
                         <p className="flex items-center gap-1.5 text-slate-500 truncate">
                           <span className="text-slate-400">🏠</span>
                           <span className="truncate">{p.eventAddress}</span>
+                        </p>
+                      )}
+                      {p.eventCity && (
+                        <p className="flex items-center gap-1.5 text-slate-500 truncate">
+                          <span className="text-slate-400">🏙️</span>
+                          <span className="truncate">{p.eventCity}</span>
                         </p>
                       )}
                     </div>
@@ -328,8 +334,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ onOpenProject }) => 
       <CreateProjectModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onSubmit={async (name, desc, date, loc, addr) => {
-          await createProject(name, desc, date, loc, addr);
+        onSubmit={async (name, desc, date, loc, addr, city) => {
+          await createProject(name, desc, date, loc, addr, city);
         }}
       />
 

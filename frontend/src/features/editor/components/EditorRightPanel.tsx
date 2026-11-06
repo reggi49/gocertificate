@@ -329,6 +329,7 @@ export const EditorRightPanel: React.FC = () => {
                 '{{issue_date}}',
                 '{{event_location}}',
                 '{{event_address}}',
+                '{{event_city}}',
                 '{{certificate_id}}',
               ].map((ph) => (
                 <button

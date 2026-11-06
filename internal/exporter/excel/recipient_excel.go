@@ -42,6 +42,7 @@ func ExportRecipientsToExcelFile(proj *domain.Project, recipients []domain.Recip
 		"Tanggal Acara",
 		"Tempat",
 		"Alamat",
+		"Kecamatan - Kota",
 	}
 
 	headerStyle, _ := f.NewStyle(&excelize.Style{
@@ -101,11 +102,12 @@ func ExportRecipientsToExcelFile(proj *domain.Project, recipients []domain.Recip
 		_ = f.SetCellStyle(sheetName, cell, cell, headerStyle)
 	}
 
-	var projDate, projLocation, projAddress string
+	var projDate, projLocation, projAddress, projCity string
 	if proj != nil {
 		projDate = proj.EventDate
 		projLocation = proj.EventLocation
 		projAddress = proj.EventAddress
+		projCity = proj.EventCity
 	}
 
 	for i, r := range recipients {
@@ -122,25 +124,28 @@ func ExportRecipientsToExcelFile(proj *domain.Project, recipients []domain.Recip
 		_ = f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), eventDate)
 		_ = f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), projLocation)
 		_ = f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), projAddress)
+		_ = f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), projCity)
 
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), centerStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("B%d", row), fmt.Sprintf("B%d", row), dataStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("C%d", row), fmt.Sprintf("C%d", row), centerStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("D%d", row), fmt.Sprintf("D%d", row), dataStyle)
 		_ = f.SetCellStyle(sheetName, fmt.Sprintf("E%d", row), fmt.Sprintf("E%d", row), dataStyle)
+		_ = f.SetCellStyle(sheetName, fmt.Sprintf("F%d", row), fmt.Sprintf("F%d", row), dataStyle)
 	}
 
 	totalRows := len(recipients) + 1
 	if totalRows < 1 {
 		totalRows = 1
 	}
-	_ = f.SetSheetDimension(sheetName, fmt.Sprintf("A1:E%d", totalRows))
+	_ = f.SetSheetDimension(sheetName, fmt.Sprintf("A1:F%d", totalRows))
 
 	_ = f.SetColWidth(sheetName, "A", "A", 6)
 	_ = f.SetColWidth(sheetName, "B", "B", 30)
 	_ = f.SetColWidth(sheetName, "C", "C", 18)
 	_ = f.SetColWidth(sheetName, "D", "D", 28)
 	_ = f.SetColWidth(sheetName, "E", "E", 40)
+	_ = f.SetColWidth(sheetName, "F", "F", 40)
 
 	dir := filepath.Dir(outputPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

@@ -251,10 +251,10 @@ func TestRecipientServiceImportAndCRUD(t *testing.T) {
 	if len(rows) != 1001 {
 		t.Errorf("Expected 1001 rows in exported Excel (1 header + 1000 data rows), got %d", len(rows))
 	}
-	if len(rows[0]) != 5 {
-		t.Errorf("Expected 5 columns in exported Excel, got %d (%v)", len(rows[0]), rows[0])
+	if len(rows[0]) != 6 {
+		t.Errorf("Expected 6 columns in exported Excel, got %d (%v)", len(rows[0]), rows[0])
 	}
-	expectedHeaders := []string{"No", "Nama Lengkap", "Tanggal Acara", "Tempat", "Alamat"}
+	expectedHeaders := []string{"No", "Nama Lengkap", "Tanggal Acara", "Tempat", "Alamat", "Kecamatan - Kota"}
 	for i, h := range expectedHeaders {
 		if rows[0][i] != h {
 			t.Errorf("Column %d header mismatch: expected %s, got %s", i, h, rows[0][i])

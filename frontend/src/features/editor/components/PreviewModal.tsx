@@ -19,8 +19,9 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
     recipient_name: toTitleCase('Maharani Syahputra'),
     event_name: (activeProject?.name || 'Pelatihan Pemulasaran Jenazah').trim(),
     issue_date: (activeProject?.eventDate || '23 OKTOBER 2026').toUpperCase().trim(),
-    event_location: (activeProject?.eventLocation || 'YAYASAN JANAIZ').toUpperCase().trim(),
-    event_address: (activeProject?.eventAddress || 'SEDAYU CITY BLOK C NO.03 • JAKARTA UTARA').toUpperCase().trim(),
+    event_location: (activeProject?.eventLocation || 'MASJID ISTIQLAL').toUpperCase().trim(),
+    event_address: (activeProject?.eventAddress || 'JL. TAMAN WIJAYA KUSUMA • PASAR BARU').toUpperCase().trim(),
+    event_city: (activeProject?.eventCity || 'KECAMATAN SAWAH BESAR • JAKARTA PUSAT').toUpperCase().trim(),
     certificate_id: 'CERT/2026/00192',
   }));
 
@@ -154,6 +155,20 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
                 value={variables.event_address || ''}
                 onChange={(e) =>
                   setVariables({ ...variables, event_address: e.target.value })
+                }
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                {'{{event_city}}'}
+              </label>
+              <input
+                type="text"
+                value={variables.event_city || ''}
+                onChange={(e) =>
+                  setVariables({ ...variables, event_city: e.target.value })
                 }
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg"
               />

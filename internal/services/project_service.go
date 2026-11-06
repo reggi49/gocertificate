@@ -57,6 +57,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, input domain.CreateP
 		EventDate:     cleanInput.EventDate,
 		EventLocation: cleanInput.EventLocation,
 		EventAddress:  cleanInput.EventAddress,
+		EventCity:     cleanInput.EventCity,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 		IsArchived:    false,
@@ -78,6 +79,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, input domain.CreateP
 		EventDate:     project.EventDate,
 		EventLocation: project.EventLocation,
 		EventAddress:  project.EventAddress,
+		EventCity:     project.EventCity,
 		CreatedAt:     project.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     project.UpdatedAt.Format(time.RFC3339),
 	}
@@ -211,6 +213,7 @@ func (s *ProjectService) DuplicateProject(ctx context.Context, input domain.Dupl
 		EventDate:     sourceProj.EventDate,
 		EventLocation: sourceProj.EventLocation,
 		EventAddress:  sourceProj.EventAddress,
+		EventCity:     sourceProj.EventCity,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 		IsArchived:    false,
@@ -230,6 +233,7 @@ func (s *ProjectService) DuplicateProject(ctx context.Context, input domain.Dupl
 		EventDate:     newProj.EventDate,
 		EventLocation: newProj.EventLocation,
 		EventAddress:  newProj.EventAddress,
+		EventCity:     newProj.EventCity,
 		CreatedAt:     newProj.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     newProj.UpdatedAt.Format(time.RFC3339),
 	}

@@ -128,6 +128,7 @@ export class MockApiClient implements IApiClient {
       eventDate: input.eventDate || '',
       eventLocation: input.eventLocation || '',
       eventAddress: input.eventAddress || '',
+      eventCity: input.eventCity || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isArchived: false,
