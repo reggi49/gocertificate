@@ -347,21 +347,38 @@ func (r *GoPDFRenderer) renderTo(w io.Writer, doc *domain.Document, variables ma
 				lineHeightRatio = 1.2
 			}
 
+			// Split by newline and filter out empty/whitespace lines (e.g. from optional placeholders like event_city)
+			// so they do not distort vertical centering and line spacing.
+			var paragraphs []string
+			for _, p := range strings.Split(rawText, "\n") {
+				tp := strings.TrimSpace(p)
+				if tp != "" {
+					paragraphs = append(paragraphs, tp)
+				}
+			}
+
+			if len(paragraphs) == 0 {
+				continue
+			}
+
 			// Handle multi-line wrapping or newline splitting
 			var lines []string
 			if el.Properties.FitMode == "wrap" && wPt > 0 {
-				paragraphs := strings.Split(rawText, "\n")
 				for _, para := range paragraphs {
 					wrappedLines, err := pdf.SplitTextWithWordWrap(para, wPt)
 					if err == nil && len(wrappedLines) > 0 {
-						lines = append(lines, wrappedLines...)
+						for _, wl := range wrappedLines {
+							twl := strings.TrimSpace(wl)
+							if twl != "" {
+								lines = append(lines, twl)
+							}
+						}
 					} else {
 						lines = append(lines, para)
 					}
 				}
 			} else {
 				// Single line or explicit newlines
-				paragraphs := strings.Split(rawText, "\n")
 				if el.Properties.FitMode == "shrink" && wPt > 0 {
 					// Shrink-to-fit calculation
 					minFontSize := 8.0
@@ -382,6 +399,10 @@ func (r *GoPDFRenderer) renderTo(w io.Writer, doc *domain.Document, variables ma
 					}
 				}
 				lines = paragraphs
+			}
+
+			if len(lines) == 0 {
+				continue
 			}
 
 			// Calculate vertical alignment offset within bounding box

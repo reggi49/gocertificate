@@ -143,6 +143,14 @@ export const CanvasPreview: React.FC<CanvasPreviewProps> = ({
                   if (el.properties.textTransform) {
                     displayText = applyTextTransform(displayText, el.properties.textTransform);
                   }
+                  // Filter out empty lines (e.g. from optional placeholders like event_city)
+                  // so they do not create blank invisible rows and distort vertical centering.
+                  displayText = displayText
+                    .split('\n')
+                    .map((l) => l.trim())
+                    .filter((l) => l.length > 0)
+                    .join('\n');
+
                   // Approximate pt to display pixels (1 pt = 96/72 px = 1.333 px)
                   const fontSizePx =
                     ((el.properties.fontSizePt || 12) * (96 / 72)) * scale;

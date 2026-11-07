@@ -21,7 +21,9 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
     issue_date: (activeProject?.eventDate || '23 OKTOBER 2026').toUpperCase().trim(),
     event_location: (activeProject?.eventLocation || 'MASJID ISTIQLAL').toUpperCase().trim(),
     event_address: (activeProject?.eventAddress || 'JL. TAMAN WIJAYA KUSUMA • PASAR BARU').toUpperCase().trim(),
-    event_city: (activeProject?.eventCity || 'KECAMATAN SAWAH BESAR • JAKARTA PUSAT').toUpperCase().trim(),
+    event_city: activeProject?.eventCity
+      ? activeProject.eventCity.toUpperCase().trim()
+      : 'KECAMATAN SAWAH BESAR • JAKARTA PUSAT',
     certificate_id: 'CERT/2026/00192',
   }));
 
@@ -162,15 +164,16 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
 
             <div>
               <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                {'{{event_city}}'}
+                {'{{event_city}} (Opsional)'}
               </label>
               <input
                 type="text"
+                placeholder="Kosongkan jika tanpa kecamatan/kota"
                 value={variables.event_city || ''}
                 onChange={(e) =>
                   setVariables({ ...variables, event_city: e.target.value })
                 }
-                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg"
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg placeholder:text-slate-400"
               />
             </div>
 

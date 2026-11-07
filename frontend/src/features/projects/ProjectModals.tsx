@@ -39,10 +39,6 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
       setError('Alamat acara wajib diisi');
       return;
     }
-    if (!eventCity.trim()) {
-      setError('Kecamatan - Kota wajib diisi');
-      return;
-    }
     if (eventLocation.trim().length > 100) {
       setError('Tempat acara tidak boleh lebih dari 100 karakter');
       return;
@@ -145,12 +141,11 @@ export const CreateProjectModal: React.FC<CreateModalProps> = ({ isOpen, onClose
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-              Kecamatan - Kota *
+              Kecamatan - Kota (Opsional)
             </label>
             <input
               type="text"
-              required
-              placeholder="Contoh: Kecamatan Sawah Besar • Jakarta Pusat"
+              placeholder="Contoh: Kecamatan Sawah Besar • Jakarta Pusat (Boleh dikosongkan)"
               value={eventCity}
               onChange={(e) => setEventCity(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

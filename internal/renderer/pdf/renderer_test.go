@@ -540,6 +540,36 @@ func TestDefaultJanaizTemplate(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(outputDir, "default_janaiz_test.pdf"), pdfBytes, 0644)
 }
 
+func TestDefaultJanaizTemplateWithoutOptionalEventCity(t *testing.T) {
+	fontDir := filepath.Join("..", "..", "..", "assets", "fonts")
+	renderer := pdf.NewGoPDFRenderer(fontDir)
+
+	doc := domain.DefaultJanaizDocument()
+
+	// Omit event_city (optional field empty)
+	variables := map[string]string{
+		"recipient_name": "Maharani Syahputra",
+		"issue_date":     "08 DESEMBER 2026",
+		"event_location": "MASJID ISTIQLAL",
+		"event_address":  "JL. TAMAN WIJAYA KUSUMA • PASAR BARU",
+		"event_city":     "", // empty optional city
+	}
+
+	assetDir := filepath.Join("..", "..", "..", "assets")
+	pdfBytes, err := renderer.Render(doc, variables, assetDir)
+	if err != nil {
+		t.Fatalf("Failed to render Janaiz template without optional city: %v", err)
+	}
+
+	if len(pdfBytes) < 5000 {
+		t.Fatalf("Generated PDF is too small: %d bytes", len(pdfBytes))
+	}
+
+	outputDir := filepath.Join("..", "..", "..", "tests", "fixtures", "output")
+	_ = os.MkdirAll(outputDir, 0755)
+	_ = os.WriteFile(filepath.Join(outputDir, "default_janaiz_no_city_test.pdf"), pdfBytes, 0644)
+}
+
 func TestToTitleCaseAndApplyTextTransform(t *testing.T) {
 	tests := []struct {
 		input    string
