@@ -5,4 +5,3 @@ type PrinterInfo struct {
 	Name      string `json:"name"`
 	IsDefault bool   `json:"isDefault"`
 }
-

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 
 	"certificate-generator/internal/domain"
@@ -58,6 +59,13 @@ func DefaultDataDirectory() string {
 func NewApp(cfg Config) (*App, error) {
 	if cfg.DataDir == "" {
 		cfg.DataDir = DefaultDataDirectory()
+	}
+
+	// Soft heap limit: makes the GC collect more eagerly under batch rendering pressure
+	// instead of letting the heap grow to 2x live size. It is a soft target (never an OOM cause)
+	// and can be overridden via the standard GOMEMLIMIT environment variable.
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(384 << 20)
 	}
 
 	sm, err := filesystem.NewStorageManager(cfg.DataDir)

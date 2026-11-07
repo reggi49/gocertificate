@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -264,14 +263,23 @@ func (g *BatchGenerator) ExecuteBatch(
 
 	assetRootDir := filepath.Join(projDir, "assets")
 
-	// 7. Bounded Worker Pool Processing (Smart Auto Concurrency: 75% of machine CPU cores)
+	// 7. Bounded Worker Pool Processing.
+	// Default concurrency is capped (half the logical cores, max 4) so the desktop UI thread,
+	// WebView renderer and OS (antivirus scanning each new PDF on Windows) always keep headroom.
+	// Using 75% of all cores previously pinned the CPU and made the window appear frozen.
 	concurrency := cfg.Concurrency
 	if concurrency <= 0 {
-		cpus := runtime.NumCPU()
-		concurrency = int(float64(cpus) * 0.75)
-		if concurrency < 1 {
-			concurrency = 1
-		}
+		concurrency = DefaultConcurrency()
+	}
+	if concurrency > len(recipients) {
+		concurrency = len(recipients)
+	}
+
+	// When not producing a ZIP, render straight into the final folder (no temp write + copy),
+	// halving disk I/O per certificate.
+	renderDir := finalOutputDir
+	if cfg.ExportZip {
+		renderDir = tempBatchDir
 	}
 
 	type workTask struct {
@@ -289,7 +297,8 @@ func (g *BatchGenerator) ExecuteBatch(
 	var completedCounter int32
 	var failedCounter int32
 	var wg sync.WaitGroup
-	isCancelled := false
+	var isCancelled atomic.Bool
+	throttle := newProgressThrottle(progressEmitInterval)
 
 	for w := 0; w < concurrency; w++ {
 		wg.Add(1)
@@ -305,7 +314,7 @@ func (g *BatchGenerator) ExecuteBatch(
 				// Check context cancellation before item processing
 				select {
 				case <-jobCtx.Done():
-					isCancelled = true
+					isCancelled.Store(true)
 					return
 				default:
 				}
@@ -377,11 +386,11 @@ func (g *BatchGenerator) ExecuteBatch(
 				}
 				cleanFileName := filesystem.SanitizeFilename(baseName)
 
-				// Temporary output path for this individual certificate
-				tempPdfPath := filepath.Join(tempBatchDir, cleanFileName)
+				// Output path for this individual certificate
+				renderPath := filepath.Join(renderDir, cleanFileName)
 
-				// Render individual certificate
-				renderErr := g.renderer.RenderToFile(doc, vars, assetRootDir, tempPdfPath)
+				// Render individual certificate (streamed directly to disk)
+				renderErr := g.renderer.RenderToFile(doc, vars, assetRootDir, renderPath)
 
 				var itemStatus string
 				var errMsg string
@@ -394,18 +403,25 @@ func (g *BatchGenerator) ExecuteBatch(
 					itemStatus = domain.ItemStatusCompleted
 					atomic.AddInt32(&completedCounter, 1)
 
-					// Always copy individual PDF directly to final output directory
+					// ZIP mode: also place individual PDF in the final output directory
 					// so user can open/inspect individual certificates directly from Riwayat Batch
-					finalIndivPath := filepath.Join(finalOutputDir, cleanFileName)
-					_ = copyFile(tempPdfPath, finalIndivPath)
+					if cfg.ExportZip {
+						finalIndivPath := filepath.Join(finalOutputDir, cleanFileName)
+						_ = copyFile(renderPath, finalIndivPath)
+					}
 				}
 
 				// Update item record in SQLite
 				_ = g.jobRepo.UpdateJobItem(jobCtx, task.item.ID, itemStatus, cleanFileName, errMsg)
 
-				// Update Job progress in SQLite periodically
 				cCount := int(atomic.LoadInt32(&completedCounter))
 				fCount := int(atomic.LoadInt32(&failedCounter))
+
+				// Throttle job progress DB writes + UI events (max ~5/s) to avoid flooding
+				// the SQLite writer and the WebView IPC bridge on large batches.
+				if !throttle.allow(cCount+fCount == len(recipients)) {
+					continue
+				}
 				_ = g.jobRepo.UpdateJobProgress(jobCtx, jobID, cCount, fCount)
 
 				// Dispatch Progress Event
@@ -428,8 +444,12 @@ func (g *BatchGenerator) ExecuteBatch(
 
 	wg.Wait()
 
+	// Return the transient render heap (background image copies, font subsets, compressors)
+	// to the OS as soon as the batch ends, so Task Manager does not keep showing peak RAM.
+	defer releaseMemory()
+
 	// 8. Handle Cancellation State
-	if isCancelled || jobCtx.Err() != nil {
+	if isCancelled.Load() || jobCtx.Err() != nil {
 		bgCtx, bgCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer bgCancel()
 

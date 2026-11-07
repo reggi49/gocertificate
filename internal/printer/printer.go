@@ -1,12 +1,12 @@
 package printer
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -50,8 +50,11 @@ func PrintPDF(filePath string, printerName string, copies int) error {
 }
 
 func listPrintersDarwin() ([]domain.PrinterInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), listPrintersTimeout)
+	defer cancel()
+
 	defaultPrinter := ""
-	outDef, err := exec.Command("lpstat", "-d").Output()
+	outDef, err := command(ctx, "lpstat", "-d").Output()
 	if err == nil {
 		str := strings.TrimSpace(string(outDef))
 		if idx := strings.Index(str, ":"); idx != -1 {
@@ -59,7 +62,7 @@ func listPrintersDarwin() ([]domain.PrinterInfo, error) {
 		}
 	}
 
-	out, err := exec.Command("lpstat", "-e").Output()
+	out, err := command(ctx, "lpstat", "-e").Output()
 	if err != nil {
 		if defaultPrinter != "" {
 			return []domain.PrinterInfo{{Name: defaultPrinter, IsDefault: true}}, nil
@@ -95,7 +98,9 @@ func printPDFDarwin(filePath string, printerName string, copies int) error {
 	}
 	args = append(args, filePath)
 
-	cmd := exec.Command("lp", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), printTimeout)
+	defer cancel()
+	cmd := command(ctx, "lp", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gagal mencetak dokumen: %s (%w)", strings.TrimSpace(string(out)), err)
@@ -105,7 +110,9 @@ func printPDFDarwin(filePath string, printerName string, copies int) error {
 
 func listPrintersWindows() ([]domain.PrinterInfo, error) {
 	psCmd := `Get-CimInstance Win32_Printer | Select-Object -Property Name, Default | ConvertTo-Json`
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", psCmd)
+	ctx, cancel := context.WithTimeout(context.Background(), listPrintersTimeout)
+	defer cancel()
+	cmd := command(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", psCmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("gagal mendapatkan daftar printer dari Windows: %w", err)
@@ -150,6 +157,9 @@ func printPDFWindows(filePath string, printerName string, copies int) error {
 		copies = 1
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), printTimeout)
+	defer cancel()
+
 	// 1. Check for dedicated silent printing utilities (SumatraPDF)
 	sumatraPaths := []string{
 		os.Getenv("ProgramFiles") + `\SumatraPDF\SumatraPDF.exe`,
@@ -166,7 +176,7 @@ func printPDFWindows(filePath string, printerName string, copies int) error {
 			}
 			args = append(args, filePath)
 			for i := 0; i < copies; i++ {
-				if err := exec.Command(sp, args...).Run(); err != nil {
+				if err := command(ctx, sp, args...).Run(); err != nil {
 					break
 				}
 			}
@@ -189,7 +199,11 @@ func printPDFWindows(filePath string, printerName string, copies int) error {
 				args = append(args, "/p", filePath)
 			}
 			for i := 0; i < copies; i++ {
-				_ = exec.Command(ap, args...).Run()
+				// Acrobat/Reader frequently stays resident after /t printing, which used to block
+				// this call forever and leave a hidden AcroRd32 process eating RAM. Bound each run.
+				acroCtx, acroCancel := context.WithTimeout(ctx, acrobatPrintTimeout)
+				_ = command(acroCtx, ap, args...).Run()
+				acroCancel()
 			}
 			return nil
 		}
@@ -291,7 +305,7 @@ $printDoc.Dispose()
 `, escapedFilePath, escapedPrinter, copies)
 
 	encodedCmd := buildPowerShellEncodedCommand(psWinRTScript)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encodedCmd)
+	cmd := command(ctx, "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encodedCmd)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
@@ -300,7 +314,7 @@ $printDoc.Dispose()
 	// 4. Fallback: ShellExecute Print verb (without prematurely killing the process)
 	outStr := strings.TrimSpace(string(out))
 	psFallback := fmt.Sprintf(`Start-Process -FilePath '%s' -Verb Print`, escapedFilePath)
-	fallbackCmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psFallback)
+	fallbackCmd := command(ctx, "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psFallback)
 	if fbOut, fbErr := fallbackCmd.CombinedOutput(); fbErr != nil {
 		return fmt.Errorf("gagal mencetak dokumen ke printer di Windows: %s (fallback: %s)", outStr, strings.TrimSpace(string(fbOut)))
 	}
@@ -324,4 +338,3 @@ func listPrintersUnix() ([]domain.PrinterInfo, error) {
 func printPDFUnix(filePath string, printerName string, copies int) error {
 	return printPDFDarwin(filePath, printerName, copies)
 }
-

@@ -72,12 +72,12 @@ func TestValidateID(t *testing.T) {
 
 func TestFormatEventFolderName(t *testing.T) {
 	tests := []struct {
-		name      string
-		location  string
-		address   string
-		date      string
-		fallback  string
-		expected  string
+		name     string
+		location string
+		address  string
+		date     string
+		fallback string
+		expected string
 	}{
 		{
 			name:     "Complete event info",

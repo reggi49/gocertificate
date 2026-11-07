@@ -1,15 +1,16 @@
 package pdf
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	"certificate-generator/assets"
 	"certificate-generator/internal/domain"
 	fontresolver "certificate-generator/internal/renderer/font"
 	"certificate-generator/internal/storage/filesystem"
@@ -67,7 +68,16 @@ func ParseHexColor(hex string) (uint8, uint8, uint8, error) {
 }
 
 // Render compiles the document into a professional vector PDF byte buffer.
-func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string, assetRootDir string) (pdfBytes []byte, retErr error) {
+func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string, assetRootDir string) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := r.renderTo(&buf, doc, variables, assetRootDir); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// renderTo builds the PDF and streams it directly into w (no intermediate full-size copy).
+func (r *GoPDFRenderer) renderTo(w io.Writer, doc *domain.Document, variables map[string]string, assetRootDir string) (retErr error) {
 	// Guard against panic in third-party PDF subsetter/measurer so the app NEVER crashes
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -76,7 +86,7 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 	}()
 
 	if err := doc.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid document: %w", err)
+		return fmt.Errorf("invalid document: %w", err)
 	}
 
 	pdf := &gopdf.GoPdf{}
@@ -93,40 +103,55 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 
 	pdf.AddPage()
 
-	// Register fonts: register all embedded fonts upfront
+	// Fonts are registered lazily (only the families actually used by visible text elements).
+	// Previously ALL embedded fonts (~1.5 MB of TTF) were parsed, subset and flate-compressed
+	// for every certificate, which dominated CPU/RAM usage during batch generation.
 	registeredFonts := make(map[string]bool)
 	defaultFontName := "LiberationSerif"
+	defaultFontReady := false
 
-	for family, fontBytes := range r.fontResolver.AllEmbeddedFonts() {
-		if err := pdf.AddTTFFontData(family, fontBytes); err == nil {
-			registeredFonts[family] = true
+	ensureDefaultFont := func() string {
+		if defaultFontReady {
+			return defaultFontName
 		}
-	}
-
-	// Also register disk fonts if present
-	liberationPath := filepath.Join(r.FontDir, "LiberationSerif-Regular.ttf")
-	if !registeredFonts["LiberationSerif"] {
-		if _, err := os.Stat(liberationPath); err == nil {
-			if err := pdf.AddTTFFont("LiberationSerif", liberationPath); err == nil {
-				registeredFonts["LiberationSerif"] = true
+		defaultFontReady = true
+		candidates := []string{"LiberationSerif", "Ubuntu"}
+		for _, name := range candidates {
+			if registeredFonts[name] {
+				defaultFontName = name
+				return defaultFontName
+			}
+			if canon, data, ok := r.fontResolver.ResolveBytes(name); ok {
+				if err := pdf.AddTTFFontData(canon, data); err == nil {
+					registeredFonts[canon] = true
+					defaultFontName = canon
+					return defaultFontName
+				}
 			}
 		}
-	}
-	ubuntuPath := filepath.Join(r.FontDir, "Ubuntu-Regular.ttf")
-	if !registeredFonts["Ubuntu"] {
-		if _, err := os.Stat(ubuntuPath); err == nil {
-			if err := pdf.AddTTFFont("Ubuntu", ubuntuPath); err == nil {
-				registeredFonts["Ubuntu"] = true
+		diskFonts := map[string]string{
+			"LiberationSerif": filepath.Join(r.FontDir, "LiberationSerif-Regular.ttf"),
+			"Ubuntu":          filepath.Join(r.FontDir, "Ubuntu-Regular.ttf"),
+		}
+		for _, name := range candidates {
+			p := diskFonts[name]
+			if _, err := os.Stat(p); err == nil {
+				if err := pdf.AddTTFFont(name, p); err == nil {
+					registeredFonts[name] = true
+					defaultFontName = name
+					return defaultFontName
+				}
 			}
 		}
-	}
-
-	// Guarantee default font is registered
-	if !registeredFonts[defaultFontName] {
-		for f := range registeredFonts {
-			defaultFontName = f
-			break
+		// Last resort: any embedded font
+		for family, data := range r.fontResolver.AllEmbeddedFonts() {
+			if err := pdf.AddTTFFontData(family, data); err == nil {
+				registeredFonts[family] = true
+				defaultFontName = family
+				return defaultFontName
+			}
 		}
+		return defaultFontName
 	}
 
 	// Render background color if defined
@@ -168,8 +193,8 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 					filepath.Join("frontend", "public", "assets", filepath.Base(imgRelPath)),
 				}
 				for _, candidate := range candidates {
-					if _, err := os.Stat(candidate); err == nil {
-						if err := pdf.Image(candidate, xPt, yPt, &gopdf.Rect{W: wPt, H: hPt}); err == nil {
+					if img, err := loadDiskImage(candidate); err == nil {
+						if err := pdf.ImageByHolder(img.holder(), xPt, yPt, &gopdf.Rect{W: wPt, H: hPt}); err == nil {
 							loaded = true
 							break
 						}
@@ -179,9 +204,8 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 				// Fallback to embedded backgrounds (guarantees standalone binary works anywhere)
 				if !loaded {
 					baseName := filepath.Base(imgRelPath)
-					if bgBytes, err := assets.ReadBackground(baseName); err == nil {
-						if holder, err := gopdf.ImageHolderByBytes(bgBytes); err == nil {
-							_ = pdf.ImageByHolder(holder, xPt, yPt, &gopdf.Rect{W: wPt, H: hPt})
+					if img, err := loadEmbeddedBackground(baseName); err == nil {
+						if err := pdf.ImageByHolder(img.holder(), xPt, yPt, &gopdf.Rect{W: wPt, H: hPt}); err == nil {
 							loaded = true
 						}
 					}
@@ -284,12 +308,12 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 					}
 					fontFamily = resolvedName
 				} else {
-					fontFamily = defaultFontName
+					fontFamily = ensureDefaultFont()
 				}
 			}
 
 			if !registeredFonts[fontFamily] {
-				fontFamily = defaultFontName
+				fontFamily = ensureDefaultFont()
 			}
 
 			fontSize := el.Properties.FontSizePt
@@ -299,9 +323,9 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 
 			// Activate font safely
 			if err := pdf.SetFont(fontFamily, "", int(fontSize)); err != nil {
-				if defaultFontName != "" && registeredFonts[defaultFontName] {
-					_ = pdf.SetFont(defaultFontName, "", int(fontSize))
-					fontFamily = defaultFontName
+				if def := ensureDefaultFont(); def != "" && registeredFonts[def] {
+					_ = pdf.SetFont(def, "", int(fontSize))
+					fontFamily = def
 				}
 			}
 
@@ -398,22 +422,15 @@ func (r *GoPDFRenderer) Render(doc *domain.Document, variables map[string]string
 		}
 	}
 
-	var buf bytes.Buffer
-	_, err := pdf.WriteTo(&buf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate PDF stream: %w", err)
+	if _, err := pdf.WriteTo(w); err != nil {
+		return fmt.Errorf("failed to generate PDF stream: %w", err)
 	}
-
-	return buf.Bytes(), nil
+	return nil
 }
 
-// RenderToFile writes rendered PDF atomically to the specified file path.
+// RenderToFile streams the rendered PDF atomically to the specified file path
+// (temp file + fsync + rename) without buffering the whole document in memory first.
 func (r *GoPDFRenderer) RenderToFile(doc *domain.Document, variables map[string]string, assetRootDir string, outputPath string) error {
-	pdfBytes, err := r.Render(doc, variables, assetRootDir)
-	if err != nil {
-		return err
-	}
-
 	dir := filepath.Dir(outputPath)
 	base := filepath.Base(outputPath)
 	sanitizedBase := filesystem.SanitizeFilename(base)
@@ -423,7 +440,44 @@ func (r *GoPDFRenderer) RenderToFile(doc *domain.Document, variables map[string]
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	return filesystem.AtomicWriteFile(finalPath, pdfBytes, 0644)
+	tmp, err := os.CreateTemp(dir, ".render-*.pdf.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp output file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	bw := bufio.NewWriterSize(tmp, 256*1024)
+	if err := r.renderTo(bw, doc, variables, assetRootDir); err != nil {
+		return err
+	}
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("failed to write PDF: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("failed to sync PDF: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close PDF: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0644); err != nil {
+		return err
+	}
+	// Windows: os.Rename fails if destination exists on some setups; remove first.
+	if _, err := os.Stat(finalPath); err == nil {
+		_ = os.Remove(finalPath)
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return fmt.Errorf("failed to finalize PDF: %w", err)
+	}
+	committed = true
+	return nil
 }
 
 // Ensure interface implementation at compile time

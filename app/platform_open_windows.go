@@ -37,8 +37,15 @@ func openFileNative(filePath string) error {
 		if cmdErr := cmd.Start(); cmdErr != nil {
 			return fmt.Errorf("gagal membuka berkas dengan ShellExecute (%v) dan explorer (%v)", err, cmdErr)
 		}
+		reap(cmd)
 	}
 	return nil
+}
+
+// reap waits for a detached child in the background so its process handle is released
+// (otherwise every Start() leaks a kernel handle for the lifetime of the app).
+func reap(cmd *exec.Cmd) {
+	go func() { _ = cmd.Wait() }()
 }
 
 // openDirectoryNative opens a folder in Windows File Explorer.
@@ -57,8 +64,11 @@ func openDirectoryNative(dirPath string) error {
 	)
 	if ret <= 32 {
 		cmd := exec.Command("explorer.exe", dirPath)
-		return cmd.Start()
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		reap(cmd)
+		return nil
 	}
 	return nil
 }
-

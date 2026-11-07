@@ -16,4 +16,3 @@ func openDirectoryNative(dirPath string) error {
 	cmd := exec.Command("xdg-open", filepath.Clean(dirPath))
 	return cmd.Start()
 }
-

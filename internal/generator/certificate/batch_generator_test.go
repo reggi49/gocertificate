@@ -28,6 +28,19 @@ func setupBatchTestEnv(t *testing.T, count int) (
 	func(),
 ) {
 	t.Helper()
+	return setupBatchTestEnvWithDoc(t, count, nil)
+}
+
+// setupBatchTestEnvWithDoc is like setupBatchTestEnv but allows overriding the template document.
+func setupBatchTestEnvWithDoc(t *testing.T, count int, overrideDoc *domain.Document) (
+	*certgen.BatchGenerator,
+	*domain.Project,
+	*domain.Template,
+	[]domain.Recipient,
+	*filesystem.StorageManager,
+	func(),
+) {
+	t.Helper()
 	tempDir := t.TempDir()
 	dataDir := filepath.Join(tempDir, "CertificateGenerator")
 	fontDir := filepath.Join("..", "..", "..", "assets", "fonts")
@@ -97,6 +110,9 @@ func setupBatchTestEnv(t *testing.T, count int) (
 			QRContent: "https://cert.local/verify?id={{certificate_id}}",
 		},
 	})
+	if overrideDoc != nil {
+		doc = overrideDoc
+	}
 	docJSON, _ := doc.ToJSON()
 
 	tmpl := &domain.Template{

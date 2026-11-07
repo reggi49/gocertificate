@@ -40,4 +40,3 @@ func TestBuildPowerShellEncodedCommand(t *testing.T) {
 		t.Fatalf("unexpected encoded output: %s", encoded)
 	}
 }
-
